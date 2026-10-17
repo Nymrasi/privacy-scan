@@ -1,0 +1,28 @@
+# The scan's relay as a standalone Cloudflare Worker (the website serves the same handler as a Pages
+# Function at nymra.si/p; use this only for a separate host, e.g. for the Telegram bot).
+# Secrets are set in the Cloudflare dashboard (see README.md), never in this file or a shell.
+name = "nymra-relay"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+
+# No public address until a route is added: no *.workers.dev URL, no preview URLs, no route.
+workers_dev = false
+preview_urls = false
+
+# Logs nothing: the scanned address is in every URL.
+logpush = false
+[observability]
+enabled = false
+[observability.logs]
+enabled = false
+invocation_logs = false
+
+# Per caller (IP, or the bot token): 300 requests a minute per Cloudflare location.
+# A heavy wallet (vitalik.eth) makes about 180 requests in 35 s; on an IP that every explorer refuses,
+# nearly all of them come here.
+[[ratelimits]]
+name = "RATE_LIMIT"
+namespace_id = "4663"
+  [ratelimits.simple]
+  limit = 300
+  period = 60

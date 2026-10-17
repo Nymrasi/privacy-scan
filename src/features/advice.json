@@ -1,0 +1,334 @@
+{
+  "version": 1,
+  "rulesVersion": "1.2.0",
+  "note": "Advice per rule id from privacy-scan RULES.md 1.2.0. kind: now = can be undone today (state), habit = change what you do from now on, permanent = the past stays on chain, info = nothing to do. who: anyone = anyone with a block explorer, exchange = the exchange behind the account, analysts = chain analysis firms with clustering tools. two actions rewritten as rules (deposit_address, timezone).",
+  "intro": {
+    "title": "Your fix plan",
+    "lead": "History on a public chain is permanent. This plan shows what you can change today, and what to do differently from now on.",
+    "winBack": "You can win back up to {points} points today.",
+    "winBackNone": "Nothing here can be undone today. The plan below keeps new links from forming.",
+    "honest": "A fix plan lowers what Nymra's rules can see. It does not make a wallet anonymous."
+  },
+  "who": {
+    "anyone": "Anyone with a block explorer",
+    "exchange": "The exchange behind the account",
+    "analysts": "Chain analysis firms"
+  },
+  "rules": {
+    "public_identity.ens_reverse": {
+      "kind": "now",
+      "who": [
+        "anyone"
+      ],
+      "action": "Clear your primary ENS name",
+      "steps": [
+        "Open the ENS App (app.ens.domains) with this wallet.",
+        "Next to Primary Name, choose Remove. It is one transaction on Ethereum.",
+        "Scan again and this finding is gone. Sites that already saw the name may still remember it."
+      ],
+      "source": "https://support.ens.domains/en/articles/13449510-how-do-i-clear-my-primary-name"
+    },
+    "public_identity.ens_records": {
+      "kind": "now",
+      "who": [
+        "anyone"
+      ],
+      "action": "Remove the records that point to you",
+      "steps": [
+        "In the ENS App, open the name and edit its records.",
+        "Delete the records that lead to you: X, GitHub, email, website, Telegram, Discord, your real name.",
+        "Want to keep a public profile? Keep it on a wallet you use for nothing else."
+      ]
+    },
+    "public_identity.owned_names": {
+      "kind": "habit",
+      "who": [
+        "anyone"
+      ],
+      "action": "Keep names on an identity wallet, and move private activity away from it",
+      "steps": [
+        "Every ENS name this wallet owns shows up next to it on explorers.",
+        "Moving the names to another wallet would link that wallet to this one. Move your private activity to a fresh wallet instead, and let this one be your public identity."
+      ]
+    },
+    "public_identity.public_label": {
+      "kind": "permanent",
+      "who": [
+        "anyone"
+      ],
+      "action": "Treat this wallet as public",
+      "steps": [
+        "An explorer or a public dataset already names this address. You cannot remove that label yourself.",
+        "Use this wallet only for what you are happy to show. Do private things from a fresh wallet."
+      ]
+    },
+    "public_identity.is_contract": {
+      "kind": "info",
+      "who": [
+        "anyone"
+      ],
+      "action": "Nothing to do",
+      "steps": [
+        "This address is a smart contract. Scan the wallets that control it to see their exposure."
+      ]
+    },
+    "linked_wallets.back_and_forth": {
+      "kind": "habit",
+      "who": [
+        "anyone",
+        "analysts"
+      ],
+      "action": "Stop sending directly between these wallets",
+      "steps": [
+        "Every direct transfer between two wallets links them, in both directions.",
+        "Decide which wallets must stay apart, and never pay one from the other.",
+        "The links that exist stay on chain. Keep them from growing."
+      ]
+    },
+    "linked_wallets.funded_by_you": {
+      "kind": "habit",
+      "who": [
+        "anyone",
+        "analysts"
+      ],
+      "action": "Do not fund new wallets from this one",
+      "steps": [
+        "A new wallet whose first money came from you is linked to you from its first block.",
+        "Fund new wallets from a source that has never touched your other wallets. Follow the fresh wallet checklist."
+      ]
+    },
+    "linked_wallets.shared_deposit": {
+      "kind": "habit",
+      "who": [
+        "exchange",
+        "analysts"
+      ],
+      "action": "Do not deposit from wallets you want kept apart into one exchange account",
+      "steps": [
+        "An exchange gives each account its own deposit address. Two wallets paying into the same one look like one person.",
+        "Wallets that must stay apart should never pay into the same exchange account."
+      ]
+    },
+    "funding_reuse.shared_funder": {
+      "kind": "habit",
+      "who": [
+        "analysts",
+        "anyone"
+      ],
+      "action": "Fund each new wallet from a different source, at a different time",
+      "steps": [
+        "The wallet whose coins paid for your first transaction also sent coins to other new wallets within days. That pattern groups wallets together.",
+        "Next time, use one source per wallet and spread funding over days, not minutes."
+      ]
+    },
+    "funding_reuse.same_funder_multichain": {
+      "kind": "habit",
+      "who": [
+        "analysts"
+      ],
+      "action": "Use separate funding per chain",
+      "steps": [
+        "On several chains, your first transaction was paid with coins from the same wallet. That ties your activity there together.",
+        "If chains should stay apart, use a different address on each, funded separately."
+      ]
+    },
+    "funding_reuse.busy_funder": {
+      "kind": "info",
+      "who": [
+        "analysts"
+      ],
+      "action": "Know who funded you",
+      "steps": [
+        "What paid for your first transaction came from a busy service or bot. That hides you in a crowd, but the service itself may know who you are."
+      ]
+    },
+    "funding_reuse.unique_funder": {
+      "kind": "info",
+      "who": [],
+      "action": "Good: keep it this way",
+      "steps": [
+        "Your funder paid no other new wallet around that time. Keep funding wallets one source at a time."
+      ]
+    },
+    "cex_exposure.funded_by_cex": {
+      "kind": "permanent",
+      "who": [
+        "exchange",
+        "anyone"
+      ],
+      "action": "Assume your exchange can see this wallet",
+      "steps": [
+        "Your first transaction on this chain was paid with coins from an exchange. The exchange knows which account withdrew them.",
+        "That link is permanent. For a wallet that must stay private, do not withdraw to it straight from an exchange account in your name."
+      ]
+    },
+    "cex_exposure.direct": {
+      "kind": "habit",
+      "who": [
+        "exchange",
+        "anyone"
+      ],
+      "action": "Keep exchange transfers on one public wallet",
+      "steps": [
+        "Transfers with exchange wallets show that this wallet is a customer.",
+        "Use one wallet for exchange deposits and withdrawals, and keep private wallets away from it."
+      ]
+    },
+    "cex_exposure.deposit_address": {
+      "kind": "permanent",
+      "who": [
+        "exchange",
+        "analysts"
+      ],
+      "action": "Pay this deposit address only from this wallet",
+      "steps": [
+        "Exchanges give each customer their own deposit address, so this one very likely belongs to your verified account.",
+        "Every wallet that ever pays into it is linked to that account. Do not deposit from wallets you want kept apart."
+      ]
+    },
+    "cross_chain.multichain_presence": {
+      "kind": "habit",
+      "who": [
+        "anyone"
+      ],
+      "action": "Use another address where you want a separate history",
+      "steps": [
+        "The same address on many chains shows one history everywhere.",
+        "Your seed phrase gives you as many addresses as you want. Use a different one per chain or per purpose."
+      ]
+    },
+    "cross_chain.bridge_match": {
+      "kind": "habit",
+      "who": [
+        "analysts"
+      ],
+      "action": "Bridge to a different address, and not the exact amount",
+      "steps": [
+        "An amount left one chain and almost the same amount arrived here within minutes. That joins the two trails.",
+        "Bridge to another address, and do not move everything on in one go."
+      ]
+    },
+    "cross_chain.received_only": {
+      "kind": "info",
+      "who": [
+        "anyone"
+      ],
+      "action": "Nothing to do",
+      "steps": [
+        "Others sent coins or tokens to this address on chains you never used. Anyone can send to any address, so this is not your trail and costs no points.",
+        "Leave tokens you did not expect alone: some exist only to get you to sign something. Sending from such a chain makes it part of your trail."
+      ]
+    },
+    "behavioral_fingerprint.timezone": {
+      "kind": "habit",
+      "who": [
+        "analysts"
+      ],
+      "action": "Send at different hours of the day",
+      "steps": [
+        "You almost never transact during the night of one time zone. That narrows down where you live.",
+        "The past stays. Sending some transactions at other hours blurs the pattern from now on."
+      ]
+    },
+    "behavioral_fingerprint.round_amounts": {
+      "kind": "habit",
+      "who": [
+        "analysts"
+      ],
+      "action": "Send amounts that are not round",
+      "steps": [
+        "Round amounts like 0.5, 1 or 100 are easy to match across wallets and chains.",
+        "When the exact amount does not matter, send 0.4837 instead of 0.5."
+      ]
+    },
+    "behavioral_fingerprint.fixed_gas": {
+      "kind": "habit",
+      "who": [
+        "analysts"
+      ],
+      "action": "Let your wallet set the gas",
+      "steps": [
+        "One exact gas setting on many transactions is a signature, often of a script.",
+        "Use your wallet's normal gas estimate instead of a fixed custom value."
+      ]
+    },
+    "behavioral_fingerprint.fixed_timing": {
+      "kind": "habit",
+      "who": [
+        "analysts"
+      ],
+      "action": "Add randomness to scheduled transactions",
+      "steps": [
+        "Transactions at a fixed interval look like automation and are easy to recognize.",
+        "If a script sends for you, give it random delays."
+      ]
+    },
+    "behavioral_fingerprint.wallet_software": {
+      "kind": "now",
+      "who": [
+        "anyone"
+      ],
+      "action": "Switch back to a standard account if you do not need smart features",
+      "steps": [
+        "This address delegates to a smart account (EIP-7702), which shows which wallet app you use.",
+        "If you do not need its features, switch back to a standard account in your wallet's settings. Not every wallet supports this yet."
+      ],
+      "source": "https://support.metamask.io/configure/accounts/switch-to-or-revert-from-a-smart-account/"
+    },
+    "recurring_counterparties.top": {
+      "kind": "habit",
+      "who": [
+        "anyone",
+        "analysts"
+      ],
+      "action": "Use separate wallets for separate relationships",
+      "steps": [
+        "A few addresses make up most of your transfers. That small circle is easy to recognize.",
+        "Keep payroll, friends and trading on different wallets."
+      ]
+    }
+  },
+  "freshWallet": {
+    "title": "Start clean: a fresh wallet checklist",
+    "steps": [
+      {
+        "do": "Make a new address. A new account in your wallet is enough; never reuse an address you have shared.",
+        "why": "A new address starts with no history."
+      },
+      {
+        "do": "Do not set a primary ENS name or records on it.",
+        "why": "A name is the fastest way from an address to a person."
+      },
+      {
+        "do": "Fund it from a source that has never touched your other wallets.",
+        "why": "Where the coins for a first transaction came from is the first thing anyone checks."
+      },
+      {
+        "do": "Send amounts that are not round, at different times of day.",
+        "why": "Round amounts and fixed hours are easy to match."
+      },
+      {
+        "do": "Never send between this wallet and your main wallet.",
+        "why": "One direct transfer links them for good."
+      },
+      {
+        "do": "Bridge to another address, not the same one.",
+        "why": "The same address on every chain is one trail."
+      },
+      {
+        "do": "Scan it with Compare against your main wallet before you use it.",
+        "why": "Nymra checks whether its rules can already link the two."
+      }
+    ],
+    "honest": "This checklist lowers what Nymra's rules can see. It does not make a wallet anonymous, and it is not legal advice."
+  },
+  "learnMore": {
+    "public_identity": "/docs/findings/public-identity/#how-to-reduce-it",
+    "linked_wallets": "/docs/findings/linked-wallets/#how-to-reduce-it",
+    "funding_reuse": "/docs/findings/funding-reuse/#how-to-reduce-it",
+    "cex_exposure": "/docs/findings/cex-exposure/#how-to-reduce-it",
+    "cross_chain": "/docs/findings/cross-chain/#how-to-reduce-it",
+    "behavioral_fingerprint": "/docs/findings/behavioral-fingerprint/#how-to-reduce-it",
+    "recurring_counterparties": "/docs/findings/recurring-counterparties/#how-to-reduce-it"
+  }
+}

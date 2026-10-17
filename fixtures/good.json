@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 1,
+  "address": "0x2c4e6a8b0d1f3a5c7e9b1d3f5a7c9e0b2d4f6a8c",
+  "scannedAt": "2026-10-16T01:30:00.000Z",
+  "durationMs": 4100,
+  "status": "complete",
+  "addressType": "eoa",
+  "score": 98,
+  "band": "private",
+  "breakdown": {
+    "base": 100,
+    "byDetector": {
+      "public_identity": 0,
+      "linked_wallets": 0,
+      "funding_reuse": 0,
+      "cex_exposure": 0,
+      "cross_chain": 0,
+      "behavioral_fingerprint": -2,
+      "recurring_counterparties": 0
+    },
+    "capped": []
+  },
+  "findings": [
+    {
+      "id": "behavioral_fingerprint.round_amounts",
+      "detector": "behavioral_fingerprint",
+      "severity": "low",
+      "confidence": 0.53,
+      "title": "You often send round amounts",
+      "explanation": "50% of your outgoing transfers are round numbers like 0.5 ETH or 100 USDC. Round amounts make it easier to match a payment out here with a payment in somewhere else.",
+      "evidence": [
+        {
+          "kind": "stat",
+          "text": "4 of 8 outgoing transfers are round",
+          "value": 0.5
+        }
+      ],
+      "chains": [
+        10
+      ],
+      "key": "behavioral_fingerprint.round_amounts",
+      "scoreImpact": -2,
+      "rawImpact": -2
+    },
+    {
+      "id": "funding_reuse.unique_funder",
+      "detector": "funding_reuse",
+      "severity": "info",
+      "confidence": 0.8,
+      "title": "Funding source looks unique",
+      "explanation": "The wallet that paid for your first transaction on OP Mainnet did not fund other wallets around the same time, as far as we can see.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "Funder",
+          "address": "0x7d9f1b3d5f7a9c1e3a5c7e9b1d3f5a7c9e0b2d4f",
+          "chainId": 10,
+          "url": "https://explorer.optimism.io/address/0x7d9f1b3d5f7a9c1e3a5c7e9b1d3f5a7c9e0b2d4f"
+        }
+      ],
+      "chains": [
+        10
+      ],
+      "key": "funding_reuse.unique_funder",
+      "scoreImpact": 0,
+      "rawImpact": 0
+    }
+  ],
+  "linkedWallets": [],
+  "warnings": [],
+  "identity": {
+    "labels": []
+  },
+  "coverage": [
+    {
+      "chainId": 10,
+      "name": "OP Mainnet",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 9,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "precheck": {
+        "sent": 8,
+        "holds": true
+      },
+      "firstSeen": 1757010685,
+      "lastSeen": 1763899840,
+      "durationMs": 700
+    },
+    {
+      "chainId": 1,
+      "name": "Ethereum",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 56,
+      "name": "BNB Smart Chain",
+      "status": "no_activity",
+      "source": "nodereal",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "none",
+      "truncated": false,
+      "limitations": [
+        "BNB Smart Chain is read through NodeReal: internal BNB transfers and calldata are not listed, so contracts are only recognised by their tokens. Funder checks around a date are not available here.",
+        "Quick check only: no transaction sent and no BNB held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 100,
+      "name": "Gnosis",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no XDAI held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 130,
+      "name": "Unichain",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 137,
+      "name": "Polygon PoS",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no POL held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 324,
+      "name": "ZKsync Era",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 1868,
+      "name": "Soneium",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 4663,
+      "name": "Robinhood Chain",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "none",
+      "truncated": false,
+      "limitations": [
+        "Robinhood Chain has no traces and no archive state: internal ETH transfers (for example a withdrawal paid out by a contract) are invisible. Normal transactions and token transfers are complete.",
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 8453,
+      "name": "Base",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 42161,
+      "name": "Arbitrum One",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 42220,
+      "name": "Celo",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no CELO held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 43114,
+      "name": "Avalanche C-Chain",
+      "status": "no_activity",
+      "source": "routescan",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no AVAX held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 57073,
+      "name": "Ink",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 59144,
+      "name": "Linea",
+      "status": "no_activity",
+      "source": "etherscan",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 534352,
+      "name": "Scroll",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    }
+  ],
+  "incomplete": [],
+  "engine": {
+    "name": "nymra-privacy-scan",
+    "version": "0.1.0",
+    "rulesVersion": "1.4.0"
+  }
+}

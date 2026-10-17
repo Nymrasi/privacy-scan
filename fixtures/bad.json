@@ -1,0 +1,717 @@
+{
+  "schemaVersion": 1,
+  "address": "0x7a3f9c1e2b4d5a6c8e0f1a2b3c4d5e6f7a8b9c0d",
+  "scannedAt": "2026-10-16T01:30:00.000Z",
+  "durationMs": 9200,
+  "status": "complete",
+  "addressType": "eoa",
+  "score": 36,
+  "band": "traceable",
+  "breakdown": {
+    "base": 100,
+    "byDetector": {
+      "public_identity": -8,
+      "linked_wallets": -19,
+      "funding_reuse": 0,
+      "cex_exposure": -20,
+      "cross_chain": -8,
+      "behavioral_fingerprint": -5,
+      "recurring_counterparties": -4
+    },
+    "capped": [
+      "cex_exposure"
+    ]
+  },
+  "findings": [
+    {
+      "id": "cex_exposure.deposit_address",
+      "detector": "cex_exposure",
+      "severity": "critical",
+      "confidence": 0.8,
+      "title": "You send to an exchange deposit address",
+      "explanation": "You sent funds 14 times to an address that forwards what it receives to Binance. Exchanges give each customer their own deposit address, so this is very likely tied to a verified exchange account.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "Binance deposit address, used 14 times",
+          "address": "0x3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+          "label": "Binance deposit",
+          "value": 14
+        },
+        {
+          "kind": "tx",
+          "text": "It forwarded 3.91 ETH to Binance",
+          "chainId": 1,
+          "txHash": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff2af9",
+          "timestamp": 1762182667,
+          "url": "https://eth.blockscout.com/tx/0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff2af9",
+          "address": "0x28c6c06298d514db089934071355e5743bf21d60"
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "key": "cex_exposure.deposit_address",
+      "scoreImpact": -18,
+      "rawImpact": -18
+    },
+    {
+      "id": "linked_wallets.shared_deposit",
+      "detector": "linked_wallets",
+      "severity": "high",
+      "confidence": 0.7,
+      "title": "Another wallet uses your exchange deposit address",
+      "explanation": "0x5e1d...ccbb also sends to the Binance deposit address you use. A deposit address belongs to one exchange account, so wallets that pay into it are often run by the same person. This is a likelihood, not proof of who owns them.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "Shared Binance deposit address",
+          "address": "0x3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+          "label": "Binance deposit"
+        },
+        {
+          "kind": "address",
+          "text": "Also paid in 2 times",
+          "address": "0x5e1d2c3b4a59687766554433221100ffeeddccbb",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x5e1d2c3b4a59687766554433221100ffeeddccbb",
+          "value": 2
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "related": [
+        {
+          "address": "0x5e1d2c3b4a59687766554433221100ffeeddccbb",
+          "confidence": 0.7,
+          "reasons": [
+            "same CEX deposit address"
+          ],
+          "chainIds": [
+            1
+          ]
+        }
+      ],
+      "deep": true,
+      "key": "linked_wallets.shared_deposit",
+      "scoreImpact": -10,
+      "rawImpact": -10
+    },
+    {
+      "id": "linked_wallets.back_and_forth",
+      "detector": "linked_wallets",
+      "severity": "high",
+      "confidence": 0.61,
+      "title": "Funds go back and forth with one wallet",
+      "explanation": "You sent to and received from 0x9a8b...1c2d 5 times (3 out, 2 in). Repeated two-way flows between personal wallets often mean they belong together. This is a likelihood, not proof of who owns them.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "3 out, 2 in",
+          "address": "0x9a8b7c6d5e4f30211203f4e5d6c7b8a9fa0b1c2d",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x9a8b7c6d5e4f30211203f4e5d6c7b8a9fa0b1c2d",
+          "value": 5
+        },
+        {
+          "kind": "tx",
+          "text": "First transfer with 0x9a8b...1c2d",
+          "chainId": 1,
+          "txHash": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff3f8",
+          "timestamp": 1757840527,
+          "url": "https://eth.blockscout.com/tx/0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff3f8"
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "related": [
+        {
+          "address": "0x9a8b7c6d5e4f30211203f4e5d6c7b8a9fa0b1c2d",
+          "confidence": 0.61,
+          "reasons": [
+            "back and forth transfers"
+          ],
+          "chainIds": [
+            1
+          ]
+        }
+      ],
+      "deep": true,
+      "key": "linked_wallets.back_and_forth",
+      "scoreImpact": -9,
+      "rawImpact": -9
+    },
+    {
+      "id": "public_identity.ens_reverse",
+      "detector": "public_identity",
+      "severity": "medium",
+      "confidence": 1,
+      "title": "Your wallet has a public name",
+      "explanation": "This address is set to show the ENS name alice.example. Anyone who knows the name finds this wallet, and anyone looking at the wallet sees the name.",
+      "evidence": [
+        {
+          "kind": "ens",
+          "text": "Primary ENS name: alice.example",
+          "value": "alice.example",
+          "chainId": 1
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "key": "public_identity.ens_reverse",
+      "scoreImpact": -8,
+      "rawImpact": -8
+    },
+    {
+      "id": "cross_chain.multichain_presence",
+      "detector": "cross_chain",
+      "severity": "medium",
+      "confidence": 1,
+      "title": "Active on 5 chains with one address",
+      "explanation": "This address sent transactions on Ethereum, Base, Arbitrum One, OP Mainnet and Robinhood Chain. One address everywhere means one public history everywhere: anyone who finds you on one chain finds you on all of them.",
+      "evidence": [
+        {
+          "kind": "stat",
+          "chainId": 1,
+          "text": "Ethereum: 27 transactions sent",
+          "value": 27
+        },
+        {
+          "kind": "stat",
+          "chainId": 8453,
+          "text": "Base: 5 transactions sent",
+          "value": 5
+        },
+        {
+          "kind": "stat",
+          "chainId": 42161,
+          "text": "Arbitrum One: 4 transactions sent",
+          "value": 4
+        },
+        {
+          "kind": "stat",
+          "chainId": 10,
+          "text": "OP Mainnet: 3 transactions sent",
+          "value": 3
+        },
+        {
+          "kind": "stat",
+          "chainId": 4663,
+          "text": "Robinhood Chain: 3 transactions sent",
+          "value": 3
+        }
+      ],
+      "chains": [
+        1,
+        8453,
+        42161,
+        10,
+        4663
+      ],
+      "key": "cross_chain.multichain_presence",
+      "scoreImpact": -8,
+      "rawImpact": -8
+    },
+    {
+      "id": "behavioral_fingerprint.timezone",
+      "detector": "behavioral_fingerprint",
+      "severity": "medium",
+      "confidence": 0.62,
+      "title": "Your activity points to a time zone",
+      "explanation": "You almost never transact between 23:00 and 07:00 UTC (0% of your transactions). If that is when you sleep, you live somewhere between UTC-1 and UTC+1. It narrows down where you are.",
+      "evidence": [
+        {
+          "kind": "pattern",
+          "text": "Transactions per UTC hour, 42 transactions",
+          "value": "0,0,0,0,0,0,0,2,1,5,3,4,3,2,1,2,2,2,2,4,1,4,4,0"
+        }
+      ],
+      "chains": [
+        1,
+        8453,
+        42161,
+        10,
+        4663
+      ],
+      "key": "behavioral_fingerprint.timezone",
+      "scoreImpact": -5,
+      "rawImpact": -5
+    },
+    {
+      "id": "recurring_counterparties.top",
+      "detector": "recurring_counterparties",
+      "severity": "low",
+      "confidence": 0.9,
+      "title": "You deal with the same few wallets",
+      "explanation": "3 wallets account for 53% of your transfers with personal wallets. Repeat counterparties draw a small, recognisable circle around you.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "14 transfers",
+          "address": "0x3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+          "value": 14
+        },
+        {
+          "kind": "address",
+          "text": "5 transfers",
+          "address": "0x9a8b7c6d5e4f30211203f4e5d6c7b8a9fa0b1c2d",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x9a8b7c6d5e4f30211203f4e5d6c7b8a9fa0b1c2d",
+          "value": 5
+        },
+        {
+          "kind": "address",
+          "text": "4 transfers",
+          "address": "0x6363636363636363636363636363636363636363",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x6363636363636363636363636363636363636363",
+          "value": 4
+        }
+      ],
+      "chains": [
+        1,
+        8453,
+        10,
+        4663
+      ],
+      "key": "recurring_counterparties.top",
+      "scoreImpact": -4,
+      "rawImpact": -4
+    },
+    {
+      "id": "cex_exposure.funded_by_cex",
+      "detector": "cex_exposure",
+      "severity": "high",
+      "confidence": 1,
+      "title": "Your wallet was funded straight from an exchange",
+      "explanation": "Your first transaction on Ethereum, Base, Arbitrum One, OP Mainnet and Robinhood Chain was paid with coins from Binance. The exchange can match this address to the account that withdrew, and anyone can see the money came from Binance.",
+      "evidence": [
+        {
+          "kind": "tx",
+          "text": "Paid for your first transaction: 2.44 ETH from Binance",
+          "chainId": 1,
+          "txHash": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff3e9",
+          "timestamp": 1757005319,
+          "url": "https://eth.blockscout.com/tx/0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff3e9",
+          "address": "0x28c6c06298d514db089934071355e5743bf21d60",
+          "label": "Binance"
+        },
+        {
+          "kind": "tx",
+          "text": "Paid for your first transaction: 0.098 ETH from Coinbase",
+          "chainId": 8453,
+          "txHash": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff408",
+          "timestamp": 1758705478,
+          "url": "https://base.blockscout.com/tx/0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff408",
+          "address": "0xa9d1e08c7793af67e9d92fe308d5697fb81d3e43",
+          "label": "Coinbase"
+        },
+        {
+          "kind": "tx",
+          "text": "Paid for your first transaction: 0.231 ETH from Binance",
+          "chainId": 42161,
+          "txHash": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff40e",
+          "timestamp": 1759870512,
+          "url": "https://arbitrum.blockscout.com/tx/0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff40e",
+          "address": "0x28c6c06298d514db089934071355e5743bf21d60",
+          "label": "Binance"
+        }
+      ],
+      "chains": [
+        1,
+        8453,
+        42161,
+        10,
+        4663
+      ],
+      "key": "cex_exposure.funded_by_cex",
+      "scoreImpact": -2,
+      "rawImpact": -14
+    },
+    {
+      "id": "cex_exposure.direct",
+      "detector": "cex_exposure",
+      "severity": "medium",
+      "confidence": 1,
+      "title": "Transfers with exchange wallets",
+      "explanation": "7 transfers went to or came from known exchange wallets (Binance, Coinbase). Exchanges know who their customers are, and their wallets are labelled publicly.",
+      "evidence": [
+        {
+          "kind": "label",
+          "text": "Binance: 5 transfers",
+          "label": "Binance",
+          "value": 5
+        },
+        {
+          "kind": "label",
+          "text": "Coinbase: 2 transfers",
+          "label": "Coinbase",
+          "value": 2
+        }
+      ],
+      "chains": [
+        1,
+        42161,
+        10,
+        8453,
+        4663
+      ],
+      "key": "cex_exposure.direct",
+      "scoreImpact": 0,
+      "rawImpact": -8
+    }
+  ],
+  "linkedWallets": [
+    {
+      "address": "0x5e1d2c3b4a59687766554433221100ffeeddccbb",
+      "confidence": 0.7,
+      "reasons": [
+        "same CEX deposit address"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "likely"
+    },
+    {
+      "address": "0x9a8b7c6d5e4f30211203f4e5d6c7b8a9fa0b1c2d",
+      "confidence": 0.61,
+      "reasons": [
+        "back and forth transfers"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "possible"
+    }
+  ],
+  "warnings": [],
+  "identity": {
+    "ens": "alice.example",
+    "labels": []
+  },
+  "coverage": [
+    {
+      "chainId": 1,
+      "name": "Ethereum",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 31,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "precheck": {
+        "sent": 27,
+        "holds": true
+      },
+      "firstSeen": 1757005319,
+      "lastSeen": 1770033067,
+      "durationMs": 2100
+    },
+    {
+      "chainId": 8453,
+      "name": "Base",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 6,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "precheck": {
+        "sent": 5,
+        "holds": true
+      },
+      "firstSeen": 1758705478,
+      "lastSeen": 1760612534,
+      "durationMs": 1300
+    },
+    {
+      "chainId": 42161,
+      "name": "Arbitrum One",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 5,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "precheck": {
+        "sent": 4,
+        "holds": true
+      },
+      "firstSeen": 1759870512,
+      "lastSeen": 1761334808,
+      "durationMs": 1100
+    },
+    {
+      "chainId": 10,
+      "name": "OP Mainnet",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 4,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "precheck": {
+        "sent": 3,
+        "holds": true
+      },
+      "firstSeen": 1761038590,
+      "lastSeen": 1762105338,
+      "durationMs": 900
+    },
+    {
+      "chainId": 4663,
+      "name": "Robinhood Chain",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 4,
+      "tokenTransferCount": 0,
+      "internalTransfers": "none",
+      "truncated": false,
+      "limitations": [
+        "Robinhood Chain has no traces and no archive state: internal ETH transfers (for example a withdrawal paid out by a contract) are invisible. Normal transactions and token transfers are complete."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 3,
+        "holds": true
+      },
+      "firstSeen": 1762257313,
+      "lastSeen": 1763321537,
+      "durationMs": 800
+    },
+    {
+      "chainId": 56,
+      "name": "BNB Smart Chain",
+      "status": "no_activity",
+      "source": "nodereal",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "none",
+      "truncated": false,
+      "limitations": [
+        "BNB Smart Chain is read through NodeReal: internal BNB transfers and calldata are not listed, so contracts are only recognised by their tokens. Funder checks around a date are not available here.",
+        "Quick check only: no transaction sent and no BNB held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 100,
+      "name": "Gnosis",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no XDAI held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 130,
+      "name": "Unichain",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 137,
+      "name": "Polygon PoS",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no POL held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 324,
+      "name": "ZKsync Era",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 1868,
+      "name": "Soneium",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 42220,
+      "name": "Celo",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no CELO held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 43114,
+      "name": "Avalanche C-Chain",
+      "status": "no_activity",
+      "source": "routescan",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no AVAX held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 57073,
+      "name": "Ink",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 59144,
+      "name": "Linea",
+      "status": "no_activity",
+      "source": "etherscan",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    },
+    {
+      "chainId": 534352,
+      "name": "Scroll",
+      "status": "no_activity",
+      "source": "blockscout",
+      "txCount": 0,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [
+        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
+      ],
+      "missing": [],
+      "precheck": {
+        "sent": 0,
+        "holds": false
+      },
+      "durationMs": 140
+    }
+  ],
+  "incomplete": [],
+  "engine": {
+    "name": "nymra-privacy-scan",
+    "version": "0.1.0",
+    "rulesVersion": "1.4.0"
+  }
+}

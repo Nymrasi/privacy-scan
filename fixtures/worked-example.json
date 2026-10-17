@@ -1,0 +1,473 @@
+{
+  "schemaVersion": 1,
+  "address": "0x7e5f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b",
+  "scannedAt": "2026-10-16T00:00:00.000Z",
+  "durationMs": 4200,
+  "status": "complete",
+  "addressType": "eoa",
+  "score": 30,
+  "band": "exposed",
+  "breakdown": {
+    "base": 100,
+    "byDetector": {
+      "public_identity": 0,
+      "linked_wallets": -25,
+      "funding_reuse": -18,
+      "cex_exposure": -18,
+      "cross_chain": -4,
+      "behavioral_fingerprint": 0,
+      "recurring_counterparties": -5
+    },
+    "capped": [
+      "linked_wallets"
+    ]
+  },
+  "findings": [
+    {
+      "id": "cex_exposure.deposit_address",
+      "detector": "cex_exposure",
+      "severity": "critical",
+      "confidence": 0.8,
+      "title": "You send to an exchange deposit address",
+      "explanation": "You sent funds 2 times to an address that forwards what it receives to Binance. Exchanges give each customer their own deposit address, so this is very likely tied to a verified exchange account.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "Binance deposit address, used 2 times",
+          "address": "0x4c09b19545742827c325e17f4fb267a0b6695504",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x4c09b19545742827c325e17f4fb267a0b6695504",
+          "label": "Binance deposit",
+          "value": 2
+        },
+        {
+          "kind": "tx",
+          "text": "It forwarded 0.22 ETH to Binance",
+          "chainId": 1,
+          "txHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeec",
+          "timestamp": 1757064800,
+          "url": "https://eth.blockscout.com/tx/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeec",
+          "address": "0x28c6c06298d514db089934071355e5743bf21d60"
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "key": "cex_exposure.deposit_address",
+      "scoreImpact": -18,
+      "rawImpact": -18
+    },
+    {
+      "id": "funding_reuse.shared_funder",
+      "detector": "funding_reuse",
+      "severity": "high",
+      "confidence": 0.75,
+      "title": "Your funder also funded other wallets",
+      "explanation": "The wallet whose coins paid for your first transaction on Ethereum also sent coins to 3 other wallets within 3 days of funding you. Wallets funded together from one source are easy to group.",
+      "evidence": [
+        {
+          "kind": "tx",
+          "text": "Paid for your first transaction, 0.4 ETH",
+          "chainId": 1,
+          "txHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1",
+          "timestamp": 1757005400,
+          "url": "https://eth.blockscout.com/tx/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1"
+        },
+        {
+          "kind": "address",
+          "text": "Funder",
+          "address": "0x6e1c9165ea96044d4a9f52c6314096f5280f6fe3",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x6e1c9165ea96044d4a9f52c6314096f5280f6fe3"
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "related": [
+        {
+          "address": "0xff946d506c8cd6674d16d77b6089a9ab78ece4a9",
+          "confidence": 0.56,
+          "reasons": [
+            "shared funder"
+          ],
+          "chainIds": [
+            1
+          ]
+        },
+        {
+          "address": "0x8c5230fd565e84cbbe09990f545dca3d5251276f",
+          "confidence": 0.56,
+          "reasons": [
+            "shared funder"
+          ],
+          "chainIds": [
+            1
+          ]
+        },
+        {
+          "address": "0x80151989cd3eee69d4552ce67c336bde2779a839",
+          "confidence": 0.56,
+          "reasons": [
+            "shared funder"
+          ],
+          "chainIds": [
+            1
+          ]
+        }
+      ],
+      "deep": true,
+      "key": "funding_reuse.shared_funder",
+      "scoreImpact": -11,
+      "rawImpact": -11
+    },
+    {
+      "id": "linked_wallets.shared_deposit",
+      "detector": "linked_wallets",
+      "severity": "high",
+      "confidence": 0.7,
+      "title": "Another wallet uses your exchange deposit address",
+      "explanation": "0xb617...60ad also sends to the Binance deposit address you use. A deposit address belongs to one exchange account, so wallets that pay into it are often run by the same person. This is a likelihood, not proof of who owns them.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "Shared Binance deposit address",
+          "address": "0x4c09b19545742827c325e17f4fb267a0b6695504",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x4c09b19545742827c325e17f4fb267a0b6695504",
+          "label": "Binance deposit"
+        },
+        {
+          "kind": "address",
+          "text": "Also paid in 2 times",
+          "address": "0xb6177e149d9561ac7bfb1061206cbe4830ba60ad",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0xb6177e149d9561ac7bfb1061206cbe4830ba60ad",
+          "value": 2
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "related": [
+        {
+          "address": "0xb6177e149d9561ac7bfb1061206cbe4830ba60ad",
+          "confidence": 0.7,
+          "reasons": [
+            "same CEX deposit address"
+          ],
+          "chainIds": [
+            1
+          ]
+        }
+      ],
+      "deep": true,
+      "key": "linked_wallets.shared_deposit",
+      "scoreImpact": -10,
+      "rawImpact": -10
+    },
+    {
+      "id": "linked_wallets.back_and_forth",
+      "detector": "linked_wallets",
+      "severity": "high",
+      "confidence": 0.61,
+      "title": "Funds go back and forth with one wallet",
+      "explanation": "You sent to and received from 0xcc97...198c 5 times (3 out, 2 in). Repeated two-way flows between personal wallets often mean they belong together. This is a likelihood, not proof of who owns them.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "3 out, 2 in",
+          "address": "0xcc9754d4565038c49a2b4239c06fc0a55823198c",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0xcc9754d4565038c49a2b4239c06fc0a55823198c",
+          "value": 5
+        },
+        {
+          "kind": "tx",
+          "text": "First transfer with 0xcc97...198c",
+          "chainId": 1,
+          "txHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2",
+          "timestamp": 1757010800,
+          "url": "https://eth.blockscout.com/tx/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2"
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "related": [
+        {
+          "address": "0xcc9754d4565038c49a2b4239c06fc0a55823198c",
+          "confidence": 0.61,
+          "reasons": [
+            "back and forth transfers"
+          ],
+          "chainIds": [
+            1
+          ]
+        }
+      ],
+      "deep": true,
+      "key": "linked_wallets.back_and_forth",
+      "scoreImpact": -9,
+      "rawImpact": -9
+    },
+    {
+      "id": "funding_reuse.same_funder_multichain",
+      "detector": "funding_reuse",
+      "severity": "medium",
+      "confidence": 0.85,
+      "title": "Same funder on 2 chains",
+      "explanation": "On Ethereum and Base, your first transaction was paid with coins from the same wallet. That ties your activity on those chains together.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "Funder on Ethereum and Base",
+          "address": "0x6e1c9165ea96044d4a9f52c6314096f5280f6fe3",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x6e1c9165ea96044d4a9f52c6314096f5280f6fe3",
+          "value": 2
+        },
+        {
+          "kind": "tx",
+          "text": "Paid for your first transaction on Ethereum, 0.4 ETH",
+          "chainId": 1,
+          "txHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1",
+          "timestamp": 1757005400,
+          "url": "https://eth.blockscout.com/tx/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1"
+        },
+        {
+          "kind": "tx",
+          "text": "Paid for your first transaction on Base, 0.02 ETH",
+          "chainId": 8453,
+          "txHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea",
+          "timestamp": 1757054000,
+          "url": "https://base.blockscout.com/tx/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea"
+        }
+      ],
+      "chains": [
+        1,
+        8453
+      ],
+      "key": "funding_reuse.same_funder_multichain",
+      "scoreImpact": -7,
+      "rawImpact": -7
+    },
+    {
+      "id": "linked_wallets.funded_by_you",
+      "detector": "linked_wallets",
+      "severity": "high",
+      "confidence": 0.6,
+      "title": "You funded a fresh wallet",
+      "explanation": "Your transfer was the very first money 0xe58e...c3db ever received. A new wallet funded from an old one carries the old one's history with it. It may be a gift or a payment, so this is a likelihood, not proof of who owns it.",
+      "evidence": [
+        {
+          "kind": "tx",
+          "text": "First funds of 0xe58e...c3db",
+          "chainId": 1,
+          "txHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee10",
+          "timestamp": 1757086400,
+          "url": "https://eth.blockscout.com/tx/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee10"
+        }
+      ],
+      "chains": [
+        1
+      ],
+      "related": [
+        {
+          "address": "0xe58e782c097c59b2ec1cd772a06c1fddc82bc3db",
+          "confidence": 0.6,
+          "reasons": [
+            "you sent its first funds"
+          ],
+          "chainIds": [
+            1
+          ]
+        }
+      ],
+      "deep": true,
+      "key": "linked_wallets.funded_by_you",
+      "scoreImpact": -6,
+      "rawImpact": -8
+    },
+    {
+      "id": "recurring_counterparties.top",
+      "detector": "recurring_counterparties",
+      "severity": "medium",
+      "confidence": 0.61,
+      "title": "You deal with the same few wallets",
+      "explanation": "3 wallets account for 82% of your transfers with personal wallets. Repeat counterparties draw a small, recognisable circle around you.",
+      "evidence": [
+        {
+          "kind": "address",
+          "text": "5 transfers",
+          "address": "0xcc9754d4565038c49a2b4239c06fc0a55823198c",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0xcc9754d4565038c49a2b4239c06fc0a55823198c",
+          "value": 5
+        },
+        {
+          "kind": "address",
+          "text": "2 transfers",
+          "address": "0x4c09b19545742827c325e17f4fb267a0b6695504",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x4c09b19545742827c325e17f4fb267a0b6695504",
+          "value": 2
+        },
+        {
+          "kind": "address",
+          "text": "2 transfers",
+          "address": "0x6e1c9165ea96044d4a9f52c6314096f5280f6fe3",
+          "chainId": 1,
+          "url": "https://eth.blockscout.com/address/0x6e1c9165ea96044d4a9f52c6314096f5280f6fe3",
+          "value": 2
+        }
+      ],
+      "chains": [
+        1,
+        8453
+      ],
+      "key": "recurring_counterparties.top",
+      "scoreImpact": -5,
+      "rawImpact": -5
+    },
+    {
+      "id": "cross_chain.multichain_presence",
+      "detector": "cross_chain",
+      "severity": "low",
+      "confidence": 1,
+      "title": "Active on 2 chains with one address",
+      "explanation": "This address sent transactions on Ethereum and Base. One address everywhere means one public history everywhere: anyone who finds you on one chain finds you on all of them.",
+      "evidence": [
+        {
+          "kind": "stat",
+          "chainId": 1,
+          "text": "Ethereum: 6 transactions sent",
+          "value": 6
+        },
+        {
+          "kind": "stat",
+          "chainId": 8453,
+          "text": "Base: 1 transaction sent",
+          "value": 1
+        }
+      ],
+      "chains": [
+        1,
+        8453
+      ],
+      "key": "cross_chain.multichain_presence",
+      "scoreImpact": -4,
+      "rawImpact": -4
+    }
+  ],
+  "linkedWallets": [
+    {
+      "address": "0xb6177e149d9561ac7bfb1061206cbe4830ba60ad",
+      "confidence": 0.7,
+      "reasons": [
+        "same CEX deposit address"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "likely"
+    },
+    {
+      "address": "0xcc9754d4565038c49a2b4239c06fc0a55823198c",
+      "confidence": 0.61,
+      "reasons": [
+        "back and forth transfers"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "possible"
+    },
+    {
+      "address": "0xe58e782c097c59b2ec1cd772a06c1fddc82bc3db",
+      "confidence": 0.6,
+      "reasons": [
+        "you sent its first funds"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "possible"
+    },
+    {
+      "address": "0x80151989cd3eee69d4552ce67c336bde2779a839",
+      "confidence": 0.56,
+      "reasons": [
+        "shared funder"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "possible"
+    },
+    {
+      "address": "0x8c5230fd565e84cbbe09990f545dca3d5251276f",
+      "confidence": 0.56,
+      "reasons": [
+        "shared funder"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "possible"
+    },
+    {
+      "address": "0xff946d506c8cd6674d16d77b6089a9ab78ece4a9",
+      "confidence": 0.56,
+      "reasons": [
+        "shared funder"
+      ],
+      "chainIds": [
+        1
+      ],
+      "level": "possible"
+    }
+  ],
+  "warnings": [],
+  "identity": {
+    "labels": []
+  },
+  "coverage": [
+    {
+      "chainId": 1,
+      "name": "Ethereum",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 9,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "durationMs": 900,
+      "firstSeen": 1757005400,
+      "lastSeen": 1757048600
+    },
+    {
+      "chainId": 8453,
+      "name": "Base",
+      "status": "scanned",
+      "source": "blockscout",
+      "txCount": 2,
+      "tokenTransferCount": 0,
+      "internalTransfers": "full",
+      "truncated": false,
+      "limitations": [],
+      "missing": [],
+      "durationMs": 900,
+      "firstSeen": 1757054000,
+      "lastSeen": 1757059400
+    }
+  ],
+  "incomplete": [],
+  "engine": {
+    "name": "nymra-privacy-scan",
+    "version": "0.1.0",
+    "rulesVersion": "1.4.0"
+  }
+}

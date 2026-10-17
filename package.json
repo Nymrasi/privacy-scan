@@ -1,0 +1,37 @@
+{
+  "name": "@nymrasi/privacy-scan",
+  "version": "0.1.0",
+  "description": "Open scan rules of the Nymra wallet privacy scanner: how traceable is an EVM wallet.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./chains": "./src/chains.ts",
+    "./fixtures/*": "./fixtures/*"
+  },
+  "files": [
+    "src",
+    "fixtures",
+    "proxy",
+    "SCHEMA.md",
+    "RULES.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts test/features/*.test.ts",
+    "typecheck": "tsc -p .",
+    "fixtures": "node scripts/make-fixtures.ts",
+    "scan": "node scripts/scan.ts",
+    "mutate": "node scripts/mutate.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
