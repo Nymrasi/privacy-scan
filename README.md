@@ -103,8 +103,7 @@ coverage of both chains says so. The browser never passes it and reads their own
 ## Chains
 
 Every EVM chain Nymra covers has one line in [`src/chains.ts`](src/chains.ts); the ones marked
-`defaultOn` are scanned by default, and every count comes from the register. Blast (81457) is retired: its team ended
-the chain (withdrawals close on 26 October 2026), so its line stays with a note and no road reads it. BNB
+`defaultOn` are scanned by default, and every count comes from the register. BNB
 Smart Chain (through NodeReal) is read through the relay, which holds a free key for it; without a
 relay this page may use, it shows as skipped, with the reason. Linea is read from Etherscan API V2
 without a key, at most one request per 5 s, which is its keyless limit.
@@ -178,9 +177,9 @@ A change to a rule updates `RULES.md` and `RULES_VERSION` in the same pull reque
 Report a vulnerability to **contact@nymra.si** or through this repository's Security tab, never in
 a public issue. See [SECURITY.md](SECURITY.md).
 
-Nobody at Nymra will ever ask you for a recovery phrase or a private key, or ask you to sign or
-approve anything, and an admin never writes to you first. The website and the access server are not
-public.
+How to tell Nymra from someone posing as Nymra is in the organization's
+[security policy](https://github.com/nymrasi/.github/blob/main/SECURITY.md#impersonation). The
+website and the access server are not public.
 
 ## Links
 

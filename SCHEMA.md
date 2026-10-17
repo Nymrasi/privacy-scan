@@ -338,7 +338,6 @@ transactions the wallet sent makes the chain unread, never a score from half a h
 
 [`src/chains.ts`](src/chains.ts): one line per chain. Default on: Ethereum, Base, Arbitrum One,
 OP Mainnet, Polygon PoS, Robinhood Chain, Avalanche, ZKsync Era, Scroll, Unichain, Gnosis,
-Ink, Soneium, Celo. 14 more chains (World Chain, Mode, Arbitrum Nova, MegaETH, Lisk, Shape, Manta,
+Ink, Soneium, Celo. More EVM chains (World Chain, Mode, Arbitrum Nova, MegaETH, Lisk, Shape, Manta,
 Immutable, Rootstock, Ronin, Astar, Aurora, Flow EVM, Filecoin EVM) are in the register and scan
-when passed in `opts.chainIds`. Blast (81457) is retired: its line stays with the reason (`retired`), and no road
-reads it, also not when asked for (its coverage is `skipped`).
+when passed in `opts.chainIds`.
