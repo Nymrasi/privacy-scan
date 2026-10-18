@@ -107,10 +107,24 @@ export const CHAINS: ChainDef[] = [
   { id: 314,      name: 'Filecoin EVM',    native: 'FIL',  source: bs('https://filecoin.blockscout.com'),           rpc: 'https://api.node.glif.io', explorer: 'https://filecoin.blockscout.com',          defaultOn: false },
 ];
 
+/** GIWA's mainnet (chain id 9134) is not live: docs.giwa.io says "in development" and GIWA said on X it has not launched (read October 2026). */
+const GIWA_TESTNET_LIMIT = 'GIWA Sepolia is the testnet of GIWA Chain: its coins have no value. GIWA mainnet is not live yet.';
+
+/**
+ * Testnets: read only when asked for by id in `opts.chainIds`, never by default. They are NOT in `CHAINS`, so no
+ * count, chain list or menu built from the register (site, docs, bot) sees them; only the scan's lookup knows them.
+ * GIWA Sepolia (91342) proves the engine reads GIWA Chain before its mainnet exists: the same Blockscout road as
+ * Ethereum, keyless, CORS `*`, no bot wall (measured October 2026). On mainnet day GIWA gets its own line in `CHAINS`.
+ */
+// prettier-ignore
+export const TESTNETS: ChainDef[] = [
+  { id: 91342,    name: 'GIWA Sepolia',    native: 'ETH',  source: bs('https://sepolia-explorer.giwa.io'),          rpc: 'https://sepolia-rpc.giwa.io', explorer: 'https://sepolia-explorer.giwa.io',          defaultOn: false, limits: [GIWA_TESTNET_LIMIT] },
+];
+
 /** Chains with no free source at all. Listed in coverage as `skipped`, with the reason. Empty since BNB and Linea came in through the relay. */
 export const UNSUPPORTED: { id: ChainId; name: string; reason: string }[] = [];
 
-export const CHAIN_BY_ID: Map<ChainId, ChainDef> = new Map(CHAINS.map((c) => [c.id, c]));
+export const CHAIN_BY_ID: Map<ChainId, ChainDef> = new Map([...CHAINS, ...TESTNETS].map((c) => [c.id, c]));
 
 /**
  * The chain as this scan reads it: through its keyed second source when the relay holds that key

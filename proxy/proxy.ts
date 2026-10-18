@@ -25,7 +25,7 @@
 //   history; on an Alchemy host only the transfer list), at most 16 calls per batch, at most 4 KB.
 // - Per caller: the RATE_LIMIT binding when there is one, else a limiter in memory; plus the WAF rule
 //   in proxy/README.md. Every upstream call has a 15 s timeout. A bot check upstream comes back as
-//   JSON 502, never as its HTML page.
+//   JSON 503, never as its HTML page, and so does a redirect: the relay follows none.
 import { CHAINS } from '../src/chains.ts';
 import { ENS_RPC } from '../src/sources/identity.ts';
 
@@ -269,10 +269,19 @@ export async function handle(req: Request, env: ProxyEnv = {}): Promise<Response
       headers: { accept: 'application/json', ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...up.headers },
       body,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-      redirect: 'error',
+      // Cloudflare's runtime throws on redirect 'error' (Node takes it, so a Node test cannot see that).
+      // 'manual' hands the redirect back, and the relay refuses it below: a target never sends a read
+      // on to another host.
+      redirect: 'manual',
     });
   } catch {
-    return json(502, { error: 'upstream unreachable' }, {});
+    // The relay's own failures answer 503, never 502 or 504: on a custom domain Cloudflare puts its own
+    // error page over those, and the scan would never see the reason.
+    return json(503, { error: 'upstream unreachable' }, { 'x-nymra-relay': 'unreachable' });
+  }
+  if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
+    await res.body?.cancel().catch(() => {});
+    return json(503, { error: 'upstream redirect' }, { 'x-nymra-relay': 'redirect' });
   }
   if (up.keyed === 'pro') {
     const c = Number(res.headers.get('x-credits-remaining'));
@@ -280,7 +289,7 @@ export async function handle(req: Request, env: ProxyEnv = {}): Promise<Response
   }
   const text = await res.text().catch(() => '');
   const type = res.headers.get('content-type') ?? '';
-  if (/text\/html/i.test(type) || /^\s*</.test(text)) return json(502, { error: 'upstream bot check' }, { 'x-nymra-relay': 'blocked' });
+  if (/text\/html/i.test(type) || /^\s*</.test(text)) return json(503, { error: 'upstream bot check' }, { 'x-nymra-relay': 'blocked' });
   const pass: Record<string, string> = { 'content-type': 'application/json', 'cache-control': 'no-store' };
   // Only a 429 passes its wait on. The quota counters of one upstream explorer would mislead the scan's
   // pacing of the relay, which fronts many explorers (and the PRO counters describe our key, not the caller).

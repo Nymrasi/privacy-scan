@@ -238,7 +238,7 @@ Cloudflare-walled chains (see below).
 
 | source | used for | key | CORS | verdict |
 |---|---|---|---|---|
-| Blockscout REST `/api/v2/addresses/<a>/{transactions,token-transfers,internal-transactions}` | history on 26 chains | none | `*` | **primary**. 50 rows a page, keyset paging, 180 requests a minute per instance. Each row says whether the other side is a contract and carries its public tags (exchange labels) |
+| Blockscout REST `/api/v2/addresses/<a>/{transactions,token-transfers,internal-transactions}` | history on every chain with a Blockscout explorer | none | `*` | **primary**. 50 rows a page, keyset paging, 180 requests a minute per instance. Each row says whether the other side is a contract and carries its public tags (exchange labels) |
 | Blockscout Etherscan-compatible `/api` | | none | `*` | **not used**: keyless it allows about 10 requests an hour per IP |
 | Blockscout `/api/v2/addresses/<a>` | primary ENS name, public tags, contract flag | none | `*` | used once per scan on Ethereum |
 | Blockscout BENS `bens.services.blockscout.com/api/v1/1/...` | ENS names, namehash, resolver | none | echoes origin | used for ENS |

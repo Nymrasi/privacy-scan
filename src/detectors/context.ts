@@ -18,6 +18,14 @@ export interface Profile {
   ownedNames: string[];
   /** Public name tags on the address itself (the explorer's, from its address page and its own side of the rows). */
   tags: string[];
+  /**
+   * The chains each tag in `tags` was seen on: Ethereum for the address page (the identity read asks chain
+   * 1), a row's own chain for a tag on the address's side of its rows. One address can carry a different
+   * name on each chain (WETH on Robinhood Chain is a phishing-flagged wallet on Ethereum).
+   */
+  tagChains?: Record<string, ChainId[]>;
+  /** The chains this address holds code on, in register order. Empty or absent: no code was seen. */
+  codeChains?: ChainId[];
   /** Every explorer tag slug on the address itself (`exchange`, `deposit-address`, `warpcast-account` ...), and the entity they name. */
   slugs?: string[];
   entity?: string;

@@ -623,6 +623,38 @@ test('A6: the chain says the wallet sent 23 transactions, the explorer lists non
   }) as typeof fetch;
   const c = await scan(ME, { chainIds: [137], fetch: g, cache: false });
   assert.equal(c.coverage[0].status, 'no_activity');
+  // And it is a contract, not a wallet with a score. The identity read only sees chain 1.
+  assert.equal(c.addressType, 'contract');
+});
+
+// The identity read asks Blockscout for chain 1 only, so a contract that holds its code on
+// another chain came through as a wallet and was given a Privacy Score (measured on WETH on Robinhood
+// Chain and on Uniswap V4's Pool Manager on Base). Code on any chain the scan reads settles it.
+test('a contract whose code is on another chain is a contract, not a wallet with a score', async () => {
+  const codeOn = (code: string) => (async (input: string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify(body.map((c: any) => ({
+        id: c.id,
+        result: c.method === 'eth_getTransactionCount' ? '0x5' : c.method === 'eth_getBalance' ? '0x2386f26fc10000' : code,
+      }))));
+    }
+    // What the identity read sees on chain 1: this address has no code there.
+    if (url.includes('/api/v2/addresses/')) {
+      return new Response(JSON.stringify(/0x[0-9a-f]{40}$/.test(url) ? { is_contract: false } : { items: [], next_page_params: null }));
+    }
+    return new Response(JSON.stringify({ items: [] }));
+  }) as typeof fetch;
+  for (const chainId of [8453, 4663]) {
+    const contract = await scan(ME, { chainIds: [chainId], fetch: codeOn('0x6080604052'), cache: false });
+    assert.equal(contract.addressType, 'contract', `code on chain ${chainId} is a contract`);
+  }
+  const wallet = await scan(ME, { chainIds: [8453], fetch: codeOn('0x'), cache: false });
+  assert.equal(wallet.addressType, 'eoa', 'no code anywhere stays a wallet');
+  // An EIP-7702 account is a wallet that delegates to code, so it keeps its score.
+  const delegated = await scan(ME, { chainIds: [8453], fetch: codeOn('0xef0100' + '11'.repeat(20)), cache: false });
+  assert.equal(delegated.addressType, 'eoa', 'an EIP-7702 delegation is a wallet');
 });
 
 // ---------- no request the explorer refuses (v12 rules: no `order` on internal transfers, no items_count=0) ----------

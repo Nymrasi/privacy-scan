@@ -37,7 +37,9 @@ function fakeFetch(log: string[]) {
     if (init?.method === 'POST') {
       const body = JSON.parse(String(init.body));
       const active = url.includes('ethereum-rpc');
-      return json(body.map((c: any) => ({ id: c.id, result: active ? '0x5' : '0x0' })));
+      // One answer per call: a nonce and a balance, and no code, because ME is a wallet here. Answering
+      // every id with '0x5' also said "this address holds code", which since 2026-10-18 makes it a contract.
+      return json(body.map((c: any) => ({ id: c.id, result: c.method === 'eth_getCode' ? '0x' : active ? '0x5' : '0x0' })));
     }
     if (/\/api\/v2\/addresses\/0x[0-9a-f]{40}$/.test(url)) return json({ is_contract: false, public_tags: [], metadata: null });
     if (url.includes('addresses:lookup')) return json({ items: [] });

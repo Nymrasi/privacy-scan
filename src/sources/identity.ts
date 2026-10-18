@@ -76,6 +76,8 @@ export async function fetchProfile(http: Http, me: string): Promise<{ profile: P
       .filter((t: any) => t && (t.tagType === 'name' || t.display_name || t.label))
       .map((t: any) => String(t.name ?? t.display_name ?? t.label));
     profile.tags = [...new Set(tags)].slice(0, 6);
+    profile.tagChains = Object.fromEntries(profile.tags.map((t) => [t, [eth.id]]));
+    if (profile.isContract) profile.codeChains = [eth.id];
   }
   if (!profile.ens && rev.status === 'fulfilled') {
     // Only a name that resolves back to this address is its primary name.

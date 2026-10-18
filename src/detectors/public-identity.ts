@@ -1,4 +1,5 @@
 // ENS / public identity: a name, linked accounts, public labels.
+import { chainName } from '../chains.ts';
 import { cexLabel } from '../labels.ts';
 import type { Evidence, Finding } from '../types.ts';
 import { finding, type Detector } from './context.ts';
@@ -7,6 +8,9 @@ const KEY_NAMES: Record<string, string> = {
   'com.twitter': 'X (Twitter)', 'com.github': 'GitHub', url: 'website', email: 'email', 'com.discord': 'Discord',
   'org.telegram': 'Telegram', 'com.linkedin': 'LinkedIn', 'xyz.farcaster': 'Farcaster', name: 'name', location: 'location',
 };
+
+/** "Ethereum", "Ethereum and Base", "Ethereum, Base and Robinhood Chain". */
+const listOf = (xs: string[]) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
 export const publicIdentity: Detector = {
   id: 'public_identity',
@@ -60,21 +64,31 @@ export const publicIdentity: Detector = {
     if (cex && cex.kind === 'hot') tags.push(`${cex.entity} (exchange wallet)`);
     if (cex && cex.kind === 'deposit') tags.push(`${cex.entity} deposit address`);
     if (tags.length) {
+      // Each label with the chain it was seen on: one address can carry a different name on each chain.
+      // A label from the bundled lists has no chain of its own and keeps Ethereum's.
+      const on = (t: string) => p.tagChains?.[t] ?? [];
+      const said = (t: string) => (on(t).length ? `${t} on ${listOf(on(t).map(chainName))}` : t);
+      const chains = [...new Set(tags.flatMap(on))];
       out.push(finding({
         id: 'public_identity.public_label', detector: 'public_identity', severity: 'critical', confidence: 1,
         title: it ? 'This address carries a public label' : 'Your address carries a public label',
-        explanation: `Explorers or open label lists name this address: ${tags.slice(0, 3).join(', ')}. Labels travel with the address to every site that uses them.`,
-        evidence: tags.slice(0, 6).map((t) => ({ kind: 'label' as const, text: t, label: t })),
-        chains: [1],
+        explanation: `Explorers or open label lists name this address: ${tags.slice(0, 3).map(said).join(', ')}. Labels travel with the address to every site that uses them.`,
+        // Each row says every chain its label was seen on; `label` stays the bare label for whoever reads it.
+        evidence: tags.slice(0, 6).map((t) => ({ kind: 'label' as const, text: said(t), label: t })),
+        chains: chains.length ? chains : [1],
       }));
     }
     if (p.isContract) {
+      // The chains that hold the code, not Ethereum by default: the code can live only on Base or on
+      // Robinhood Chain. The explorer's contract name is Ethereum's, so it names only code there.
+      const code = p.codeChains?.length ? p.codeChains : [1];
+      const named = code.includes(1) ? p.contractName : undefined;
       out.push(finding({
         id: 'public_identity.is_contract', detector: 'public_identity', severity: 'info', confidence: 1,
         title: 'This is a smart contract',
-        explanation: `This address holds code${p.contractName ? ` (${p.contractName})` : ''}. A contract is public by design, so read the score as a description of its traffic, not of a person.`,
-        evidence: [{ kind: 'stat', text: 'Address has contract code on Ethereum', chainId: 1 }],
-        chains: [1],
+        explanation: `This address holds code${named ? ` (${named})` : ''}. A contract is public by design, so read the score as a description of its traffic, not of a person.`,
+        evidence: [{ kind: 'stat', text: `Address has contract code on ${listOf(code.map(chainName))}`, chainId: code[0] }],
+        chains: code,
       }));
     }
     return out;

@@ -77,8 +77,46 @@ test('targets: only register hosts over https, no user info, no redirects follow
   }
   assert.equal(seen.length, 0);
   await handle(req(ETH_V2), ENV);
-  assert.equal(seen[0].init.redirect, 'error');
+  // 'manual', never 'error': Cloudflare's runtime throws on 'error', and Node does not. The relay refuses
+  // the redirect itself (next test).
+  assert.equal(seen[0].init.redirect, 'manual');
   assert.ok(seen[0].init.signal instanceof AbortSignal, 'every upstream call has a timeout');
+});
+
+test('a redirect upstream is refused, never followed: JSON 503 with x-nymra-relay redirect', async () => {
+  for (const status of [301, 302, 303, 307, 308]) {
+    seen = [];
+    reply = () => new Response('', { status, headers: { location: 'https://evil.example/stolen' } });
+    const r = await handle(req(ETH_V2), ENV);
+    assert.equal(r.status, 503, String(status));
+    assert.equal(r.headers.get('x-nymra-relay'), 'redirect', String(status));
+    assert.equal(r.headers.get('location'), null, String(status));
+    assert.deepEqual(JSON.parse(await r.text()), { error: 'upstream redirect' });
+    assert.equal(seen.length, 1, `${status}: asked once, the redirect not followed`);
+  }
+  // A runtime that answers 'manual' with an opaque redirect (status 0) is refused the same way.
+  reply = () => ({ type: 'opaqueredirect', status: 0, ok: false, headers: new Headers(), body: null, text: async () => '' }) as unknown as Response;
+  const opaque = await handle(req(ETH_V2), ENV);
+  assert.equal(opaque.status, 503);
+  assert.equal(opaque.headers.get('x-nymra-relay'), 'redirect');
+});
+
+test('an upstream that cannot be reached answers JSON 503 with the reason, never 502 or 504', async () => {
+  reply = () => { throw new TypeError('fetch failed'); };
+  const r = await handle(req(ETH_V2), ENV);
+  assert.equal(r.status, 503);
+  assert.equal(r.headers.get('x-nymra-relay'), 'unreachable');
+  assert.deepEqual(JSON.parse(await r.text()), { error: 'upstream unreachable' });
+});
+
+test('the relay asks only for what Cloudflare runs, and never answers 502 or 504 itself', async () => {
+  // A Node test cannot catch redirect 'error' at run time (Node accepts it, Cloudflare's runtime throws),
+  // so the source is read. On a custom domain Cloudflare puts its own page over a 502 or 504.
+  const src = await (await import('node:fs/promises')).readFile(new URL('../proxy/proxy.ts', import.meta.url), 'utf8');
+  const code = src.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  assert.doesNotMatch(code, /redirect\s*:\s*['"](error|follow)['"]/);
+  assert.match(code, /redirect\s*:\s*'manual'/);
+  assert.doesNotMatch(code, /json\(\s*50[24]\b|status\s*:\s*50[24]\b/);
 });
 
 test('Blockscout goes to the PRO API with the key in an Authorization header, never in the URL', () => {
@@ -148,10 +186,10 @@ test('JSON-RPC: only the read calls the scan sends, a bounded batch, a body of a
   assert.equal(seen.length, 0);
 });
 
-test('an upstream bot check comes back as JSON 502, never as its HTML page', async () => {
+test('an upstream bot check comes back as JSON 503, never as its HTML page', async () => {
   reply = () => new Response('<!DOCTYPE html><title>Just a moment...</title>', { status: 403, headers: { 'content-type': 'text/html' } });
   const r = await handle(req(ETH_V2), {});
-  assert.equal(r.status, 502);
+  assert.equal(r.status, 503);
   assert.equal(r.headers.get('content-type'), 'application/json');
   assert.equal(r.headers.get('x-nymra-relay'), 'blocked');
   assert.ok(!(await r.text()).includes('<'));

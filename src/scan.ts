@@ -12,7 +12,7 @@ import { createHttp } from './sources/http.ts';
 export { clearSessionCache } from './sources/http.ts';
 import { fetchProfile, type ProfileGap } from './sources/identity.ts';
 import { keepSession, recordLookups } from './session.ts';
-import type { ChainCoverage, Finding, Incomplete, RelatedAddress, ScanOptions, ScanResult, ServiceIdentity, Warning } from './types.ts';
+import type { ChainCoverage, ChainId, Finding, Incomplete, RelatedAddress, ScanOptions, ScanResult, ServiceIdentity, Warning } from './types.ts';
 
 export const ENGINE_VERSION = '0.1.0';
 const LOOKUP_BUDGET = 14;
@@ -59,7 +59,11 @@ export function assemble(
     score: s.score, band: s.band, breakdown: s.breakdown, findings: shown,
     linkedWallets: mergeRelated(shown, me),
     warnings,
-    identity: { ...(profile?.ens ? { ens: profile.ens } : {}), labels: profile?.tags ?? [], ...(service ? { service } : {}) },
+    identity: {
+      ...(profile?.ens ? { ens: profile.ens } : {}), labels: profile?.tags ?? [],
+      ...(profile?.tagChains ? { labelChains: profile.tagChains } : {}), ...(service ? { service } : {}),
+      ...(profile?.isContract ? { contract: contractOf(profile) } : {}),
+    },
     ...(unused ? { unused: true as const } : {}),
     coverage: [...coverage].sort((a, b) => order(a) - order(b) || a.chainId - b.chainId),
     incomplete,
@@ -73,14 +77,46 @@ export function assemble(
  */
 export function withSelf(p: Profile, hs: ChainHistory[]): Profile {
   const tags = [...p.tags], slugs = [...(p.slugs ?? [])];
+  // Where each tag was seen: the address page is Ethereum's, a row tag is its row's chain.
+  const tagChains: Record<string, ChainId[]> = Object.fromEntries(Object.entries(p.tagChains ?? {}).map(([t, c]) => [t, [...c]]));
   let entity = p.entity;
   for (const h of hs) {
     if (!h.self) continue;
-    for (const n of h.self.names) if (!tags.includes(n)) tags.push(n);
+    for (const n of h.self.names) {
+      if (!tags.includes(n)) tags.push(n);
+      const on = (tagChains[n] ??= []);
+      if (!on.includes(h.chain.id)) on.push(h.chain.id);
+    }
     for (const x of h.self.slugs) if (!slugs.includes(x)) slugs.push(x);
     entity ??= h.self.entity;
   }
-  return { ...p, tags: tags.slice(0, 6), slugs, ...(entity ? { entity } : {}) };
+  // Code on ANY chain this scan read makes the address a contract. The identity read asks Blockscout for
+  // chain 1 only (sources/identity.ts), so a contract that lives on Base or on Robinhood Chain and not on
+  // Ethereum came through as a wallet and was given a Privacy Score: measured 2026-10-18 on WETH (Robinhood
+  // Chain) and Uniswap V4's Pool Manager (Base). The per-chain quick check already reads the code
+  // (history.ts `presence`), and it leaves out an EIP-7702 delegation, which is a wallet with code.
+  const codeChains = [...(p.codeChains ?? [])];
+  for (const h of hs) if (h.code === true && !codeChains.includes(h.chain.id)) codeChains.push(h.chain.id);
+  const isContract = p.isContract || codeChains.length > 0;
+  const kept = tags.slice(0, 6);
+  return {
+    ...p, isContract, tags: kept, tagChains: Object.fromEntries(kept.map((t) => [t, tagChains[t] ?? []])),
+    ...(codeChains.length ? { codeChains } : {}), slugs, ...(entity ? { entity } : {}),
+  };
+}
+
+/**
+ * A contract's chains and its name there. The name is a tag seen on a chain that holds the code, else the
+ * explorer's contract name when that code is on Ethereum (the identity read's chain). A tag that only
+ * another chain gives this address is never its name: on Robinhood Chain 0x0bd7...ad73 is WETH, on
+ * Ethereum the same address is a wallet flagged as phishing, and the card called WETH a phishing address.
+ *
+ */
+export function contractOf(p: Profile): { chains: ChainId[]; name?: string } {
+  const chains = p.codeChains?.length ? p.codeChains : [1];
+  const name = p.tags.find((t) => (p.tagChains?.[t] ?? []).some((c) => chains.includes(c)))
+    ?? (chains.includes(1) && p.contractName ? p.contractName : undefined);
+  return { chains, ...(name ? { name } : {}) };
 }
 
 /** Everything a scan could not read, from the chain coverage, the profile and the lookups. */

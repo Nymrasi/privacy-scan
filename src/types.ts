@@ -201,6 +201,14 @@ export interface ScanResult {
      * traffic, not a person: show this state instead of a band and links.
      */
     service?: ServiceIdentity;
+    /**
+     * Set when the address holds code on a chain the scan read (a contract): those chains in register
+     * order, and its name on them. The name is a tag seen on a chain that holds the code, never a tag that
+     * only another chain gives this address. Absent name: no chain with the code names it.
+     */
+    contract?: { chains: ChainId[]; name?: string };
+    /** The chains each label in `labels` was seen on. */
+    labelChains?: Record<string, ChainId[]>;
   };
   /**
    * Set when the address never sent a transaction and holds nothing on every chain read, and nothing

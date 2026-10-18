@@ -32,7 +32,7 @@ The website serves this handler as a Cloudflare Pages Function at `https://nymra
 | JSON-RPC | read calls only: `eth_getTransactionCount`, `eth_getBalance`, `eth_getCode`, `nr_getTransactionByAddress`, and `eth_call` only as an ENS `text(bytes32,string)` read (selector `0x59d1d43c`); at most 16 calls per batch; at most 4 KB (the largest body the scan sends, the ENS records batch, is 3,931 bytes) |
 | Daily quota | PRO answers carry `x-credits-remaining`. Below 5,000 credits (about 250 calls) the relay stops using the key and answers 503 with `x-nymra-relay: quota`; the scan then lists the chain under `incomplete` with "the relay's free daily quota is spent". The quota resets at 00:00 UTC |
 | Per caller | 300 requests a minute (the `RATE_LIMIT` binding on a Worker, a counter in memory on Pages), plus the WAF rule below |
-| Upstream | 15 s timeout per call; a bot check upstream comes back as JSON 502 (`x-nymra-relay: blocked`), never as HTML |
+| Upstream | 15 s timeout per call. Redirects are never followed: a 3xx comes back as JSON 503 (`x-nymra-relay: redirect`), and so does a bot check upstream (`blocked`, never its HTML page) or an upstream out of reach (`unreachable`). The relay never answers 502 or 504 itself, because on a custom domain Cloudflare shows its own error page for those |
 | Logs | none. No `console` call in the code (a test checks it); Worker logs, observability and Logpush are off in `wrangler.toml` |
 
 ## Setup (click route, about 10 minutes; no key ever goes into a chat or a shell)
