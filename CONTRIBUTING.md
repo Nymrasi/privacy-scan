@@ -5,7 +5,7 @@ change here changes someone's score: keep changes small, explained and tested.
 
 ## Good first contributions
 
-- **A new chain.** One line in `src/chains.ts`. The chain must be EVM compatible and have a free
+- **A new chain.** One line in `src/chains.ts`. The chain must be EVM compatible and have a public
   explorer API that returns transactions and token transfers for an address, keyless where one
   exists. Say in the pull request which explorer, and whether it exposes internal transfers (traces).
 - **A label fix.** A missing or wrong exchange, bridge or service address, with a public source.
@@ -35,7 +35,7 @@ npm test
 npm run typecheck
 ```
 
-Both must pass. Keep the code dependency free: the engine runs in the browser.
+Both must pass. Add no dependencies: the engine runs in the browser.
 
 ## Security
 

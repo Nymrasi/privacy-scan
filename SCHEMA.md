@@ -175,7 +175,7 @@ means a score, marked partial, with its lines.
 | `aborted` | the scan was stopped | no score |
 | `tokens`, `internal`, `oldest` | one list of a chain | partial score |
 | `names` | the other ENS names of the address, the records of its name: at most 8 points, never the ceiling | partial score |
-| `skipped` | a chain only the relay can read, which it cannot serve today (no key yet, or its free daily quota spent until 00:00 UTC; see `skipReason`), where the quick check saw the wallet send or hold something | partial score; a retry does not help |
+| `skipped` | a chain only the relay can read, which it cannot serve today (no key for it, or its daily quota spent until 00:00 UTC; see `skipReason`), where the quick check saw the wallet send or hold something | partial score; a retry does not help |
 
 A coverage row with `status: 'error'` always has a `chain` gap. `no_activity` and `skipped` rows are
 never a failed read: the quick check found the chain empty, or the chain needs a key; a `skipped`
@@ -207,7 +207,7 @@ package; never hardcode them.
 | `truncated` | history was cut at the page limit; older activity not read |
 | `limitations` | plain sentences to show the user |
 | `missing` | parts that should have been read but were not, e.g. `internal transfers`; not empty means `partial`. `transactions (the explorer lists none of the 23 this address sent here)` means the explorer's index has a gap: the chain's RPC says the address sent transactions that the full list does not show. `incomplete` then carries it as `part: 'chain'` |
-| `skipReason` | for a `skipped` chain that only the relay reads (BNB Smart Chain): `no_key`, the relay has no key for it yet, or there is no relay this page may use (it serves nymra.si only); `quota`, the relay's free daily quota is spent and comes back at 00:00 UTC. A retry helps with neither |
+| `skipReason` | for a `skipped` chain that only the relay reads (BNB Smart Chain): `no_key`, the relay has no key for it, or there is no relay this page may use (it serves nymra.si only); `quota`, the relay's daily quota is spent and comes back at 00:00 UTC. A retry helps with neither |
 | `precheck` | `{ sent, holds }` from the quick RPC check before reading: transactions the address sent on this chain (its nonce; 0 for a contract) and whether it holds the chain's coin. Absent when the check did not run or did not answer. `sent > 0` is what the site counts as an active chain |
 | `firstSeen`, `lastSeen` | unix seconds |
 | `durationMs`, `error` | |
@@ -244,7 +244,7 @@ Cloudflare-walled chains (see below).
 | Blockscout BENS `bens.services.blockscout.com/api/v1/1/...` | ENS names, namehash, resolver | none | echoes origin | used for ENS |
 | `ethereum-rpc.publicnode.com` | ENS text records (`text()` eth_call) | none | `*` | used for ENS records |
 | Routescan `api.routescan.io/v2/network/mainnet/evm/<id>/etherscan/api` | Avalanche (and Ethereum's second source) | none | `*` | used where Blockscout has no instance |
-| Etherscan V2 `api.etherscan.io/v2/api` | Linea | none | `*` | **used for Linea only**: without a key it answers Linea at one request per 5 s per IP. Measured 2026-10-17: Base, BNB Chain, OP and Robinhood Chain answer "not supported for free", Arbitrum and Polygon ask for a key |
+| Etherscan V2 `api.etherscan.io/v2/api` | Linea | none | `*` | **used for Linea only**: without a key it answers Linea at one request per 5 s per IP. Measured 2026-10-17: Base, BNB Chain, OP and Robinhood Chain answer that they are not supported, Arbitrum and Polygon ask for a key |
 | Blockscout metadata service (labels) | | none | no CORS header | not usable from the browser |
 | Ankr Advanced API | | key required now | | not used |
 | Label dataset [`dawsbot/eth-labels`](https://github.com/dawsbot/eth-labels) (MIT, updated 2026-09) | CEX hot wallets and known deposit addresses | none | bundled | **used**: 41k exchange addresses, filtered into `src/data/cex.json`. Lookups happen locally |
@@ -259,8 +259,8 @@ chains work in the browser scan and are marked `cf` in the register. In Node the
 transfers. The chain has no traces and no archive state, so internal ETH transfers (and with that,
 funding paid out by a contract) are invisible. Every result carries that limit in `coverage`.
 
-**BNB Smart Chain** has no free keyless source: the relay reads it with its free key (see below).
-Without a key, without a relay this page may use, or when the relay's free daily quota is spent
+**BNB Smart Chain** has no keyless source: the relay reads it with its key (see below).
+Without a key, without a relay this page may use, or when the relay's daily quota is spent
 (until 00:00 UTC), it shows in `coverage` as `skipped` with `skipReason`, never as a failed read;
 where the quick check saw the wallet send or hold something there, `incomplete` carries part
 `skipped`, so the score is partial. **Linea** is read from Etherscan V2 without a key, one request
@@ -311,37 +311,37 @@ A typical wallet active on 3 chains costs about 25 to 40 requests, well under 18
 
 **The relay** ([`proxy/`](proxy), served by the website at `https://nymra.si/p`). The scan uses it
 after a refusal it cannot wait out (a bot check, or a 429 window longer than 10 s), for the two
-keyed chains, and for servers. It reads Blockscout through the PRO API with one free key. See
+keyed chains, and for servers. It reads Blockscout through the PRO API with one key. See
 [`proxy/README.md`](proxy/README.md) for its rules and its setup.
 
-**What the relay's free key buys (measured 2026-10-16).** Blockscout PRO prices a call in credits: 20 by
+**What the relay's key buys (measured 2026-10-16).** Blockscout PRO prices a call in credits: 20 by
 default, 30 for `token-transfers`, 40 for `internal-transactions`
-([docs.blockscout.com/rate-limits](https://docs.blockscout.com/rate-limits)). The free plan has
+([docs.blockscout.com/rate-limits](https://docs.blockscout.com/rate-limits)). The plan the relay uses has
 100,000 credits a day (5 a second), Builder 100 million a month for $49 (15 a second). The scan
 counts its own calls per kind (`stats.byKind`); a scan whose every Blockscout call goes through the
 relay (a user that every explorer refuses) costs:
 
-| wallet (measured) | transactions | token transfers | internal | address | credits | free plan, scans a day | Builder, scans a day |
+| wallet (measured) | transactions | token transfers | internal | address | credits | current plan, scans a day | Builder, scans a day |
 |---|---|---|---|---|---|---|---|
 | vitalik.eth, 15 active chains, histories cut at 500 | 91 | 47 | 12 | 1 | 3,730 | 26 | about 880 |
 | TYPICAL_ROW |
 
 Routescan (Avalanche), the public RPC nodes and BENS are keyless and cost nothing. Most scans
-need the relay for a few calls or none, so a day of the free plan covers far more scans than the
+need the relay for a few calls or none, so a day of the current plan covers far more scans than the
 table: it is the floor, for the worst case of a fully refused IP. Builder (100 million credits a
-month, about 3.3 million a day) is a decision for later; the free plan is what is set up now.
+month, about 3.3 million a day) is a decision for later; the current plan is the one in use.
 
-The keyed chain: BNB Smart Chain through NodeReal MegaNode (free: 10 million compute units a month;
+The keyed chain: BNB Smart Chain through NodeReal MegaNode (10 million compute units a month;
 `nr_getTransactionByAddress` costs 250, a BNB scan 2 to 4 calls, so about 10,000 to 20,000 BNB
 scans a month).
 
 The keyed second source: Base and Polygon PoS through Alchemy's Transfers API, on a server only
 (`opts.keyedAlts: ['alchemy']`, which the bot and the ASI agent pass when their relay holds the key).
-A server meets Cloudflare's wall on both explorers, and Blockscout PRO's free plan no longer serves
+A server meets Cloudflare's wall on both explorers, and Blockscout PRO's current plan no longer serves
 them (402, measured 2026-10-17). One call lists one side of one list (`fromAddress` or `toAddress`:
 both together would mean "from A to B"), so a wallet's three lists are six calls per chain, merged
 newest first; `excludeZeroValue: false`, because Alchemy leaves out every transfer of value 0 unless
-asked, and a contract call without value is a transaction too. Free plan: 30 million compute units a
+asked, and a contract call without value is a transaction too. Its plan: 30 million compute units a
 month and 300 a second per app; a call costs 120, so a scan of both chains costs about 1,500 to 2,000
 and the relay starts Alchemy calls at most 2 a second. Like NodeReal, Alchemy gives no calldata and no
 explorer labels: those rows are `blind`, contracts are only recognised by their tokens, and there is

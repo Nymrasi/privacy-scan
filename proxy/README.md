@@ -7,11 +7,11 @@ requests that cannot go that way:
    shared IP (a VPN, Tor, an office) can hit that, and the explorers behind a bot check (Base,
    Arbitrum, Polygon, Robinhood Chain) refuse scripts and some VPN exits with an HTML "Just a moment..."
    page. After a 429 the scan waits up to 10 s; after a bot check, or a longer wait, it asks the relay,
-   which reads Blockscout's PRO API with a free key.
-2. **The keyed chain.** BNB Smart Chain (NodeReal) has no keyless source. The relay holds its free
+   which reads Blockscout's PRO API with its own key.
+2. **The keyed chain.** BNB Smart Chain (NodeReal) has no keyless source. The relay holds its
    key, the browser never does. Linea needs none: Etherscan V2 answers it without a key, one request
    per 5 s. On a server, Base and Polygon PoS are read through Alchemy (`ALCHEMY_API_KEY`), because
-   PRO's free plan no longer serves them (402 since 1 October 2026); only a server's own relay holds
+   the relay's PRO plan no longer serves them (402 since 1 October 2026); only a server's own relay holds
    that key (the ASI agent's), and only it passes `keyedAlts: ['alchemy']`.
 3. **A server.** All four bot-checked explorers refuse a server. A server-side caller reads through the
    relay with its own token (`BOT_TOKEN`). It is kept for the Telegram bot, which today is a helper in the
@@ -30,22 +30,22 @@ The website serves this handler as a Cloudflare Pages Function at `https://nymra
 | Targets | only the hosts of `src/chains.ts`, BENS, the ENS RPC, `api.etherscan.io`, `bsc-mainnet.nodereal.io`, `base-mainnet.g.alchemy.com` and `polygon-mainnet.g.alchemy.com`, over https, without redirects (400). On each host only what the scan reads: on an explorer `GET /api/v2/addresses/<address>` and its `transactions`, `token-transfers` and `internal-transactions`; on Routescan and Etherscan `GET` with `module=account` and `action` `txlist`, `txlistinternal` or `tokentx`; on BENS `GET` of an address, `addresses:lookup` or a domain; on an RPC `POST` only; on an Alchemy host `POST /v2/` of `alchemy_getAssetTransfers` and nothing else (no other host gets that call). Anything else: 400, a wrong method 405 |
 | Keys | `BLOCKSCOUT_PRO_KEY` as an `Authorization: Bearer` header; `ETHERSCAN_API_KEY` as `apikey` in the query (Etherscan has no header form); `NODEREAL_API_KEY` and `ALCHEMY_API_KEY` in the path (their only form). Every key is cut out of every answer, also URL-encoded, before it goes back |
 | JSON-RPC | read calls only: `eth_getTransactionCount`, `eth_getBalance`, `eth_getCode`, `nr_getTransactionByAddress`, and `eth_call` only as an ENS `text(bytes32,string)` read (selector `0x59d1d43c`); at most 16 calls per batch; at most 4 KB (the largest body the scan sends, the ENS records batch, is 3,931 bytes) |
-| Daily quota | PRO answers carry `x-credits-remaining`. Below 5,000 credits (about 250 calls) the relay stops using the key and answers 503 with `x-nymra-relay: quota`; the scan then lists the chain under `incomplete` with "the relay's free daily quota is spent". The quota resets at 00:00 UTC |
+| Daily quota | PRO answers carry `x-credits-remaining`. Below 5,000 credits (about 250 calls) the relay stops using the key and answers 503 with `x-nymra-relay: quota`; the scan then lists the chain under `incomplete` with "the Nymra relay's daily quota is spent". The quota resets at 00:00 UTC |
 | Per caller | 300 requests a minute (the `RATE_LIMIT` binding on a Worker, a counter in memory on Pages), plus the WAF rule below |
 | Upstream | 15 s timeout per call. Redirects are never followed: a 3xx comes back as JSON 503 (`x-nymra-relay: redirect`), and so does a bot check upstream (`blocked`, never its HTML page) or an upstream out of reach (`unreachable`). The relay never answers 502 or 504 itself, because on a custom domain Cloudflare shows its own error page for those |
 | Logs | none. No `console` call in the code (a test checks it); Worker logs, observability and Logpush are off in `wrangler.toml` |
 
 ## Setup (click route, about 10 minutes; no key ever goes into a chat or a shell)
 
-**1. Three free keys.**
+**1. Three keys.**
 
 - Blockscout PRO: [dev.blockscout.com](https://dev.blockscout.com), sign in, **API keys**, **Create**.
-  Free plan: 100,000 credits a day, 5 requests a second.
+  Limit: 100,000 credits a day, 5 requests a second.
 - Etherscan: not needed. The scan reads Linea without a key (one request per 5 s); a key here only
   serves a Linea read that was refused, faster ([etherscan.io/register](https://etherscan.io/register),
-  **API Dashboard**, **Add**; free plan 3 calls a second).
+  **API Dashboard**, **Add**; 3 calls a second).
 - NodeReal (for BNB Smart Chain): [nodereal.io](https://nodereal.io), **Sign up**, **MegaNode**,
-  **Create API key**. Free plan: 10 million compute units a month; one history call costs 250.
+  **Create API key**. Limit: 10 million compute units a month; one history call costs 250.
 
 **2. Put them in the Pages project.** Cloudflare dashboard, **Workers & Pages**, project **nymra**,
 **Settings**, **Variables and Secrets**, **Add**. For each one choose type **Secret** (encrypted),
@@ -60,14 +60,14 @@ for **Production** and **Preview**:
 
 Then **Deployments**, **Retry deployment** on the latest one, so the function gets the secrets.
 
-**3. One WAF rule** (free plan: one rate-limiting rule, counted per IP, 10-second period). Dashboard,
+**3. One WAF rule** (one rate-limiting rule, counted per IP, 10-second period). Dashboard,
 zone **nymra.si**, **Security**, **WAF**, **Rate limiting rules**, **Create rule**:
 
 | field | value |
 |---|---|
 | Rule name | `relay per IP` |
 | If incoming requests match | Field **URI Path**, operator **equals**, value `/p` |
-| With the same characteristics | IP (the only one on the free plan) |
+| With the same characteristics | IP |
 | When rate exceeds | **60** requests per **10 seconds** |
 | Then take action | **Block**, for **10 seconds** |
 

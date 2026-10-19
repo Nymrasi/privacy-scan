@@ -5,9 +5,9 @@ Give it an EVM address: it reads the public
 history on every supported chain and returns a Privacy Score from 0 to 100, with findings in plain
 language about what links the wallet to other wallets, exchanges and names.
 
-Nymra's first tools run on it, inside the browser. It reads free explorer APIs on each EVM chain
+Nymra's first tools run on it, inside the browser. It reads public explorer APIs on each EVM chain
 Nymra covers, such as Ethereum, Base and Polygon, most of them without a key.
-BNB Smart Chain needs a free key, which lives in the relay, never in the browser.
+BNB Smart Chain needs a key, which lives in the relay, never in the browser.
 
 > A link between wallets is always a likelihood with a confidence. This engine never states who owns
 > a wallet: its explanations say "likely", never "this is your wallet".
@@ -94,7 +94,7 @@ node scripts/scan.ts 0x... 1,8453 --json
 
 From Node or a server, the Base, Arbitrum, Polygon and Robinhood Chain explorers answer a bot
 challenge; they work from a browser. A server reads them through the relay (it uses Blockscout's PRO
-API with a free key); see [`proxy/README.md`](proxy/README.md). PRO's free plan no longer serves Base
+API with its own key); see [`proxy/README.md`](proxy/README.md). The relay's PRO plan no longer serves Base
 and Polygon (402 "Featured chain ... requires one of the following plans", measured 2026-10-17), so a
 server whose relay holds an Alchemy key passes `keyedAlts: ['alchemy']` and reads those two through
 Alchemy's Transfers API instead. Like NodeReal it gives no calldata and no explorer labels, and the
@@ -104,7 +104,7 @@ coverage of both chains says so. The browser never passes it and reads their own
 
 Every EVM chain Nymra covers has one line in [`src/chains.ts`](src/chains.ts); the ones marked
 `defaultOn` are scanned by default, and every count comes from the register. BNB
-Smart Chain (through NodeReal) is read through the relay, which holds a free key for it; without a
+Smart Chain (through NodeReal) is read through the relay, which holds a key for it; without a
 relay this page may use, it shows as skipped, with the reason. Linea is read from Etherscan API V2
 without a key, at most one request per 5 s, which is its keyless limit.
 
@@ -165,9 +165,9 @@ A change to a rule updates `RULES.md` and `RULES_VERSION` in the same pull reque
   [Routescan](https://routescan.io/), keyless; quick checks over public RPC nodes, mostly
   [PublicNode](https://www.publicnode.com/).
 - ENS: Blockscout's ENS service and a public Ethereum node.
-- BNB Smart Chain: [NodeReal MegaNode](https://nodereal.io/meganode) (free plan, key in the relay).
+- BNB Smart Chain: [NodeReal MegaNode](https://nodereal.io/meganode) (key in the relay).
   Base and Polygon PoS on a server: [Alchemy's Transfers API](https://www.alchemy.com/docs/reference/alchemy-getassettransfers)
-  (free plan, key in the relay).
+  (key in the relay).
   Linea: [Etherscan API V2](https://docs.etherscan.io/) without a key (one request per 5 s; measured
   2026-10-17, Linea is the only chain it serves that way).
 - Exchange and service labels: [dawsbot/eth-labels](https://github.com/dawsbot/eth-labels) (MIT),
