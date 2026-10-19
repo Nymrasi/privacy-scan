@@ -66,6 +66,8 @@ export interface ChainHistory {
   self?: SelfTags;
   /** Cut to what the card of an address that is no person needs: see `quickShape`. */
   quick?: true;
+  /** The explorer's index lacks part of what this address sent here: `listed` of the `sent` the chain's nonce counts. */
+  indexGap?: { listed: number; sent: number };
 }
 
 /**
@@ -461,6 +463,7 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     const h: ChainHistory = {
       ...(self ? { self } : {}),
       chain, txs, internal, tokens, ownCount: own.size, firstOwn, firstFunding, truncated, coverage,
+      ...(gap ? { indexGap: { listed: own.size, sent } } : {}),
       ...(pre ? { nonce: pre.nonce, ...(pre.code !== undefined ? { code: pre.code } : {}) } : {}),
     };
     return quick() ? quickShape(h) : h;
@@ -486,6 +489,24 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
 }
 
 /** Chains where the address signed at least one transaction: what it did itself. */
+/**
+ * A chain read whole where its explorer's index has a gap. Polygon's Blockscout had 98% of its blocks on 2026-10-19 and
+ * listed none of the 130 transactions nick.eth sent there, so the scan held back its score. When the first read
+ * finds such a gap and the chain has a gap source (`gapAlt`: Etherscan V2 through the relay, where the key lives),
+ * the chain is read once more from there. Only a second read that closes the gap takes the place of the first;
+ * a relay without that key (the chain comes back skipped), a failure or a second gap keeps the first read and its
+ * gap as they were, so the result never claims more than was read.
+ */
+export async function fetchChainWhole(http: Http, chain: ChainDef, me: string, lim: FetchLimits): Promise<ChainHistory> {
+  const first = await fetchChain(http, chain, me, lim);
+  if (!first.indexGap || !chain.gapAlt) return first;
+  const second = await fetchChain(http, { ...chain, source: chain.gapAlt, alt: undefined }, me, lim).catch(() => null);
+  if (!second || second.indexGap || second.coverage.status === 'skipped' || second.coverage.status === 'error') return first;
+  const { listed, sent } = first.indexGap;
+  second.coverage.limitations.push(`${chain.name}'s own explorer lists ${listed === 0 ? 'none' : listed} of the ${sent} transactions this address sent here, so this chain was read from Etherscan.`);
+  return second;
+}
+
 export function active(h: ChainHistory[]): ChainHistory[] {
   return h.filter(signedHere);
 }

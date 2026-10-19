@@ -43,6 +43,13 @@ export interface ChainDef {
    * holds its key (`ScanOptions.keyedAlts`, see chainForRoad); the browser never says so.
    */
   keyedAlt?: SourceDef;
+  /**
+   * A keyed source for a gap in this chain's own index: read through the relay, once, when the explorer lists fewer
+   * of the transactions the address sent than the chain's nonce says (fetchChainWhole). Polygon's Blockscout had
+   * 98% of its blocks on 2026-10-19, and none of nick.eth's 130 sent transactions; Etherscan V2 has all of Polygon and
+   * answers with the relay's key. Without that key the gap stays as it was read.
+   */
+  gapAlt?: SourceDef;
   /** Scanned by default. Others only when asked for in `opts.chainIds`. */
   defaultOn: boolean;
   /**
@@ -78,7 +85,7 @@ export const CHAINS: ChainDef[] = [
   { id: 8453,     name: 'Base',            native: 'ETH',  source: bs('https://base.blockscout.com', true), keyedAlt: al('base-mainnet'), rpc: 'https://base-rpc.publicnode.com', explorer: 'https://base.blockscout.com', defaultOn: true },
   { id: 42161,    name: 'Arbitrum One',    native: 'ETH',  source: bs('https://arbitrum.blockscout.com', true),     rpc: 'https://arbitrum-one-rpc.publicnode.com', explorer: 'https://arbitrum.blockscout.com',          defaultOn: true },
   { id: 10,       name: 'OP Mainnet',      native: 'ETH',  source: bs('https://explorer.optimism.io'),              rpc: 'https://optimism-rpc.publicnode.com', explorer: 'https://explorer.optimism.io',             defaultOn: true },
-  { id: 137,      name: 'Polygon PoS',     native: 'POL',  source: bs('https://polygon.blockscout.com', true), keyedAlt: al('polygon-mainnet'), rpc: 'https://polygon-bor-rpc.publicnode.com', explorer: 'https://polygon.blockscout.com', defaultOn: true },
+  { id: 137,      name: 'Polygon PoS',     native: 'POL',  source: bs('https://polygon.blockscout.com', true), keyedAlt: al('polygon-mainnet'), gapAlt: es(137), rpc: 'https://polygon-bor-rpc.publicnode.com', explorer: 'https://polygon.blockscout.com', defaultOn: true },
   { id: 4663,     name: 'Robinhood Chain', native: 'ETH',  source: bs('https://robinhoodchain.blockscout.com', true), rpc: 'https://rpc.mainnet.chain.robinhood.com', explorer: 'https://robinhoodchain.blockscout.com',  defaultOn: true, traces: false, limits: [RH_LIMIT] },
   { id: 43114,    name: 'Avalanche C-Chain', native: 'AVAX', source: rs(43114),                                    rpc: 'https://avalanche-c-chain-rpc.publicnode.com/ext/bc/C/rpc', explorer: 'https://snowtrace.io',                     defaultOn: true },
   { id: 81457,    name: 'Blast',           native: 'ETH',  source: rs(81457),                                       rpc: 'https://blast-rpc.publicnode.com', explorer: 'https://blastexplorer.io',                     defaultOn: false, retired: BLAST_RETIRED },

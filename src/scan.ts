@@ -5,7 +5,7 @@ import { lookalike, makeLookup, makeNonces, plural, serviceByTags, type Detector
 import { analyzeRecipients } from './detectors/deposits.ts';
 import { DETECTOR_LIST } from './detectors/index.ts';
 import { poisoningWarning } from './detectors/poisoning.ts';
-import { fetchChain, quickShape, selfTags, SIDE_SHARE, type ChainHistory, type FetchLimits } from './history.ts';
+import { fetchChainWhole, quickShape, selfTags, SIDE_SHARE, type ChainHistory, type FetchLimits } from './history.ts';
 import { serviceIdentity } from './labels.ts';
 import { linkLevel, RULES_VERSION, scoreFindings } from './score.ts';
 import { createHttp } from './sources/http.ts';
@@ -251,7 +251,7 @@ export async function scan(address: string, opts: ScanOptions = {}): Promise<Sca
   const schedule = () => { queue = queue.then(partial).catch(() => {}); };
 
   const profileP = fetchProfile(http, me).then((p) => { profile = p.profile; if (p.profile.isContract) notPersonNow(); schedule(); return p; }).catch(() => null);
-  await Promise.all(defs.map((c) => fetchChain(http, c, me, lim).then((h) => {
+  await Promise.all(defs.map((c) => fetchChainWhole(http, c, me, lim).then((h) => {
     const hh = quickOn ? quickShape(h) : h;
     histories.push(hh);
     emit({ type: 'chain', coverage: hh.coverage });

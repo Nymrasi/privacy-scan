@@ -630,6 +630,79 @@ test('A6: the chain says the wallet sent 23 transactions, the explorer lists non
   assert.equal(c.addressType, 'contract');
 });
 
+// A gap in Polygon's own index (its Blockscout had 98% of its blocks on 2026-10-19, and none of nick.eth's 130 sent
+// transactions): the chain is read once more from Etherscan V2 through the relay, and only a read that closes the
+// gap counts. `etherscan`: what the relay answers for chainid 137 ('rows', 'one': a gap of its own, 'nokey').
+function polygonGapFetch(log: string[], etherscan: 'rows' | 'one' | 'nokey', blockscoutSent = 0) {
+  return (async (input: string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify(body.map((c: any) => ({ id: c.id, result: c.method === 'eth_getTransactionCount' ? '0x5' : c.method === 'eth_getBalance' ? '0x2386f26fc10000' : '0x' }))));
+    }
+    if (url.startsWith('https://relay.test/p?u=')) {
+      const inner = new URL(decodeURIComponent(url.split('?u=')[1]));
+      log.push(`${inner.searchParams.get('chainid')} ${inner.searchParams.get('action')}`);
+      assert.equal(inner.host, 'api.etherscan.io');
+      assert.equal(inner.searchParams.get('chainid'), '137');
+      if (etherscan === 'nokey') return new Response('{"error":"not configured"}', { status: 503, headers: { 'content-type': 'application/json', 'x-nymra-relay': 'nokey' } });
+      if (inner.searchParams.get('action') !== 'txlist') return new Response(JSON.stringify({ status: '0', message: 'No transactions found', result: [] }));
+      const sent = Array.from({ length: etherscan === 'rows' ? 5 : 1 }, (_, i) => raw(ME, FRIEND, 0.01, 1_750_000_000 + i * 600));
+      return new Response(JSON.stringify({ status: '1', message: 'OK', result: [raw(FRIEND, ME, 1, 1_749_990_000), ...sent].reverse() }));
+    }
+    if (blockscoutSent && url.startsWith('https://polygon.blockscout.com') && new URL(url).pathname.endsWith('/transactions')) {
+      return new Response(JSON.stringify({ items: Array.from({ length: blockscoutSent }, (_, i) => v2(ME, FRIEND, 0.01, 1_750_000_000 + i * 600)), next_page_params: null }));
+    }
+    if (url.includes('/api/v2/addresses/')) return new Response(JSON.stringify(/0x[0-9a-f]{40}$/.test(url) ? { is_contract: false } : { items: [], next_page_params: null }));
+    return new Response(JSON.stringify({ items: [] }));
+  }) as typeof fetch;
+}
+
+test('no gap in Polygon\'s index: the relay is never asked, so the shared key is spent only where it closes a gap', async () => {
+  const log: string[] = [];
+  const r = await scan(ME, { chainIds: [137], fetch: polygonGapFetch(log, 'rows', 5), relay: 'https://relay.test/p', cache: false });
+  assert.equal(r.coverage[0].status, 'scanned');
+  assert.deepEqual(log, []);
+});
+
+test('index gap on Polygon: read once more from Etherscan through the relay, and the gap closes', async () => {
+  const log: string[] = [];
+  const r = await scan(ME, { chainIds: [137], fetch: polygonGapFetch(log, 'rows'), relay: 'https://relay.test/p', cache: false });
+  const poly = r.coverage[0];
+  assert.equal(poly.status, 'scanned');
+  assert.deepEqual(poly.missing, []);
+  assert.ok(poly.txCount >= 6, `the Etherscan rows are read: ${poly.txCount}`);
+  assert.ok(poly.limitations.includes("Polygon PoS's own explorer lists none of the 5 transactions this address sent here, so this chain was read from Etherscan."));
+  assert.ok(!r.incomplete.some((i) => i.chainId === 137), 'no gap left on Polygon');
+  assert.ok(log.some((l) => l === '137 txlist'), 'Etherscan V2 was asked for chain 137');
+});
+
+test('index gap on Polygon, and the relay holds no Etherscan key or there is no relay: the gap stays as read', async () => {
+  const log: string[] = [];
+  const nokey = await scan(ME, { chainIds: [137], fetch: polygonGapFetch(log, 'nokey'), relay: 'https://relay.test/p', cache: false });
+  assert.equal(nokey.coverage[0].status, 'partial');
+  assert.ok(nokey.coverage[0].missing.includes('transactions (the explorer lists none of the 5 this address sent here)'));
+  assert.ok(nokey.incomplete.some((i) => i.part === 'chain' && i.chainId === 137 && /lists none of the 5/.test(i.reason)));
+  assert.notEqual(nokey.coverage[0].status, 'skipped', 'never skipped: the explorer did answer');
+  const norelay = await scan(ME, { chainIds: [137], fetch: polygonGapFetch([], 'rows'), cache: false });
+  assert.equal(norelay.coverage[0].status, 'partial');
+  assert.ok(norelay.incomplete.some((i) => i.chainId === 137 && /lists none of the 5/.test(i.reason)));
+});
+
+test('index gap on Polygon, and Etherscan has a gap of its own: the first read and its gap stay', async () => {
+  const r = await scan(ME, { chainIds: [137], fetch: polygonGapFetch([], 'one'), relay: 'https://relay.test/p', cache: false });
+  assert.equal(r.coverage[0].status, 'partial');
+  assert.ok(r.incomplete.some((i) => i.chainId === 137 && /lists none of the 5/.test(i.reason)));
+  assert.ok(!r.coverage[0].limitations.some((l) => /read from Etherscan/.test(l)));
+});
+
+test('index gap on a chain without a gap source: no second read', async () => {
+  const log: string[] = [];
+  const r = await scan(ME, { chainIds: [8453], fetch: polygonGapFetch(log, 'rows'), relay: 'https://relay.test/p', cache: false });
+  assert.equal(r.coverage[0].status, 'partial');
+  assert.deepEqual(log, [], 'the relay was not asked');
+});
+
 // The identity read asks Blockscout for chain 1 only, so a contract that holds its code on
 // another chain came through as a wallet and was given a Privacy Score (measured on WETH on Robinhood
 // Chain and on Uniswap V4's Pool Manager on Base). Code on any chain the scan reads settles it.
