@@ -403,9 +403,9 @@ function keyedFetch(log: string[], o: { relayKeys: boolean; quota?: boolean; pre
       if (inner.startsWith('https://bsc-mainnet.nodereal.io/')) {
         const p = JSON.parse(String(init!.body)).params[0];
         const transfers = p.category[0] === 'external'
-          ? [{ category: 'external', blockNum: '0x2a', from: FRIEND, to: ME, value: '0x16345785d8a0000', asset: 'BNB', hash: '0x' + 'b1'.repeat(32), blockTimestamp: 1750000000, gasPrice: '0x3b9aca00', receiptsStatus: 1 },
-             { category: 'external', blockNum: '0x2b', from: ME, to: FRIEND, value: '0x6f05b59d3b20000', asset: 'BNB', hash: '0x' + 'b2'.repeat(32), blockTimestamp: 1750000100, gasPrice: '0x3b9aca00', receiptsStatus: 1 }]
-          : [{ category: '20', blockNum: '0x2c', from: ME, to: '0x' + '55'.repeat(20), value: '0xde0b6b3a7640000', asset: 'USDT', hash: '0x' + 'b3'.repeat(32), contractAddress: '0x55d398326f99059ff775485246999027b3197955', decimal: '0x12', blockTimestamp: '0x684c9d10', receiptsStatus: 1 }];
+          ? [{ category: 'external', blockNum: '0x2a', from: FRIEND, to: ME, value: '0x16345785d8a0000', asset: 'BNB', hash: '0x' + 'b1'.repeat(32), blockTimeStamp: 1750000000, gasPrice: '0x3b9aca00', receiptsStatus: 1 },
+             { category: 'external', blockNum: '0x2b', from: ME, to: FRIEND, value: '0x6f05b59d3b20000', asset: 'BNB', hash: '0x' + 'b2'.repeat(32), blockTimeStamp: 1750000100, gasPrice: '0x3b9aca00', receiptsStatus: 1 }]
+          : [{ category: '20', blockNum: '0x2c', from: ME, to: '0x' + '55'.repeat(20), value: '0xde0b6b3a7640000', asset: 'USDT', hash: '0x' + 'b3'.repeat(32), contractAddress: '0x55d398326f99059ff775485246999027b3197955', decimal: '0x12', blockTimeStamp: '0x684c9d10', receiptsStatus: 1 }];
         return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { pageKey: '', transfers } }));
       }
       if (inner.startsWith('https://api.etherscan.io/v2/api')) return lineaAnswer(inner);
@@ -594,9 +594,9 @@ test('Linea is read without any key or relay: Etherscan V2 straight from the pag
 
 test('NodeReal rows: hex and decimal fields, block timestamps in any form', async () => {
   const { noderealRow } = await import('../src/sources/explorer.ts');
-  const a = noderealRow('txlist', { blockNum: '0x10', blockTimestamp: '0x684c9d10', from: '0xAA', to: '0xBB', value: '0x0de0b6b3a7640000', hash: '0x1', gasPrice: '0x3b9aca00', receiptsStatus: 0 });
+  const a = noderealRow('txlist', { blockNum: '0x10', blockTimeStamp: '0x684c9d10', from: '0xAA', to: '0xBB', value: '0x0de0b6b3a7640000', hash: '0x1', gasPrice: '0x3b9aca00', receiptsStatus: 0 });
   assert.deepEqual([a.blockNumber, a.timeStamp, a.value, a.gasPrice, a.isError, a.from, a._blind], ['16', String(0x684c9d10), '1000000000000000000', '1000000000', '1', '0xaa', true]);
-  const b = noderealRow('tokentx', { blockNum: 17, blockTimestamp: '2026-01-01T00:00:00Z', value: '5', decimal: '0x12', asset: 'USDT', contractAddress: '0xCC' });
+  const b = noderealRow('tokentx', { blockNum: 17, blockTimeStamp: '2026-01-01T00:00:00Z', value: '5', decimal: '0x12', asset: 'USDT', contractAddress: '0xCC' });
   assert.deepEqual([b.blockNumber, b.timeStamp, b.value, b.tokenDecimal, b.tokenSymbol, b.contractAddress], ['17', '1767225600', '5', '18', 'USDT', '0xcc']);
 });
 

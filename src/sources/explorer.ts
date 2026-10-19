@@ -61,9 +61,14 @@ const unixOf = (v: unknown): string => {
   return Number.isFinite(t) ? String(Math.floor(t / 1000)) : '0';
 };
 
-/** NodeReal transfer -> Etherscan-shaped row. It carries no calldata: `_blind` tells history.ts. */
+/**
+ * NodeReal transfer -> Etherscan-shaped row. It carries no calldata: `_blind` tells history.ts. Its time is
+ * `blockTimeStamp`, with a capital S (unix seconds, as NodeReal answers): read as `blockTimestamp`, every BNB Smart
+ * Chain row had time 0, so its days were unknown and a wallet that sent nothing there was first seen at Infinity,
+ * which the Terminal could not draw (Bybit Exploiter 1).
+ */
 export function noderealRow(action: AccountAction, x: any): any {
-  const base = { blockNumber: hexOrDec(x.blockNum), timeStamp: unixOf(x.blockTimestamp), hash: String(x.hash ?? ''), from: lc(x.from), to: lc(x.to), value: hexOrDec(x.value), _blind: true };
+  const base = { blockNumber: hexOrDec(x.blockNum), timeStamp: unixOf(x.blockTimeStamp), hash: String(x.hash ?? ''), from: lc(x.from), to: lc(x.to), value: hexOrDec(x.value), _blind: true };
   if (action === 'tokentx') {
     return { ...base, tokenDecimal: x.decimal == null ? '' : hexOrDec(x.decimal), tokenSymbol: String(x.asset ?? ''), contractAddress: lc(x.contractAddress) };
   }

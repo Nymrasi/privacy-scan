@@ -452,9 +452,12 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     if (gap) coverage.missing.push(`transactions (the explorer lists ${own.size === 0 ? 'none' : own.size} of the ${sent} this address sent here)`);
     if (all.length === 0 && !gap) coverage.status = 'no_activity';
     else if (all.length) {
+      // Real times only: rows without one leave the chain's days unknown, never Infinity (the min of nothing), which
+      // no date can show (BNB Smart Chain, read before NodeReal's time field was right).
       const ts = all.map((t) => t.timestamp).filter((x) => x > 0);
-      coverage.firstSeen = Math.min(...ts, ...(firstOwn ? [firstOwn.timestamp] : []), ...(firstFunding ? [firstFunding.timestamp] : []));
-      coverage.lastSeen = Math.max(...ts);
+      const firsts = [...ts, ...(firstOwn ? [firstOwn.timestamp] : []), ...(firstFunding ? [firstFunding.timestamp] : [])].filter((x) => x > 0);
+      coverage.firstSeen = firsts.length ? Math.min(...firsts) : undefined;
+      coverage.lastSeen = ts.length ? Math.max(...ts) : undefined;
     }
     if (cut) coverage.missing.push('older transactions (time limit)');
     if (coverage.missing.length && (coverage.status === 'scanned' || coverage.status === 'no_activity')) coverage.status = 'partial';
