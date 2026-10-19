@@ -54,7 +54,7 @@ export function reasonOf(e: unknown): string {
     case 'aborted': return 'scan stopped';
     case 'network': return 'explorer unreachable';
     case 'not_found': return 'not found';
-    case 'quota': return "the relay's free daily quota is spent";
+    case 'quota': return "the relay's daily quota is spent";
     case 'needs_key': return 'needs an API key in the Nymra relay';
     default: return 'explorer error';
   }
@@ -171,13 +171,38 @@ const RESERVE = 4;
 /** Relays that refused this page as a caller, by host, until when (ms since epoch). */
 const RELAY_DOWN = new Map<string, number>();
 const RELAY_DOWN_MS = 10 * 60_000;
-export function resetHostState() { HOSTS.clear(); RELAY_DOWN.clear(); }
+/** A relay that said it holds no key for a source host, as "relay-host source-host", until when (ms since epoch). */
+const NO_KEY = new Map<string, number>();
+export function resetHostState() { HOSTS.clear(); RELAY_DOWN.clear(); NO_KEY.clear(); }
 const relayDown = (relay: string) => (RELAY_DOWN.get(new URL(relay).host) ?? 0) > Date.now();
+const noKeyFor = (relay: string, url: string) => (NO_KEY.get(`${new URL(relay).host} ${new URL(url).host}`) ?? 0) > Date.now();
 
 /** With a fallback proxy, a direct road waits at most this long for a rate-limit window. */
 const FALLBACK_AFTER_MS = 10_000;
 const BACKOFF_BASE_MS = 400;
 const BACKOFF_CAP_MS = 8000;
+/**
+ * A limit that every Nymra user shares (a key of the relay, a node's capacity) is waited out for up to
+ * this long per request, without spending its own retries: at a launch's peak the calls of every visitor
+ * queue for one key, and three retries made BNB Smart Chain a failed chain for whoever came a few seconds
+ * too late. 24 scans at once need about 48 BNB calls, 40 s at NodeReal's free 1.2 a second (a peak
+ * test). BUSY_TRIES only bounds the calls.
+ */
+const BUSY_MS = 60_000;
+const BUSY_TRIES = 24;
+/** A busy turn: half a second plus a random part that widens fast, so the waiting pages spread out. */
+const busyWait = (busy: number, random: () => number) => 500 + Math.round(random() * Math.min(BACKOFF_CAP_MS, 1500 * 2 ** busy));
+
+/**
+ * A JSON-RPC node that says it is too busy inside its answer, with HTTP 200: NodeReal's MegaNode answers
+ * -32005 "Your account has exceeded its Compute Units Per Second capacity" (free plan: 300 a second for
+ * every user of the relay's one key together, and one BNB history call costs 250), also inside a batch.
+ * Only -32005 with the words of a rate: a node also says -32005 for a query that is too large, which no
+ * wait fixes.
+ */
+export function rpcBusy(text: string): boolean {
+  return text.length < 2000 && /"code"\s*:\s*-32005\b/.test(text) && /rate|capacity|per second|too many/i.test(text);
+}
 
 /** `Retry-After` in seconds or as an HTTP date, else Blockscout's `x-ratelimit-reset` in ms. */
 export function waitFromHeaders(h: Headers, now = Date.now()): number | undefined {
@@ -242,14 +267,28 @@ export function createHttp(o: HttpOptions = {}): Http {
 
   const backoff = (attempt: number) => Math.round(random() * Math.min(BACKOFF_CAP_MS, BACKOFF_BASE_MS * 2 ** attempt));
 
-  /** One road (direct or through a proxy) with pacing and retries. Resolves to the response text. */
-  async function road(url: string, init: RequestInit | undefined, proxy: string | undefined, tries: number, tmo: number, most = maxWaitMs, timeoutTries = 1, gapMs = 0): Promise<string> {
+  /**
+   * One road (direct or through a proxy) with pacing and retries. Resolves to the response text. `shared`: a keyed
+   * source through the relay (BNB Smart Chain's NodeReal), whose one key every visitor shares; only its limit is
+   * waited out for long (BUSY_MS). A relay that is itself limited on a fallback read keeps the normal retries, so
+   * a scan never sits a minute on a chain that will not open (features-e2e 'half': 16 s, not 88).
+   */
+  async function road(url: string, init: RequestInit | undefined, proxy: string | undefined, tries: number, tmo: number, most = maxWaitMs, timeoutTries = 1, gapMs = 0, shared = false): Promise<string> {
     const host = proxy ? new URL(proxy).host : new URL(url).host;
     const target = proxy ? `${proxy}?u=${encodeURIComponent(url)}` : url;
     const st = HOSTS.get(host) ?? {};
     HOSTS.set(host, st);
     let last: HttpError | undefined;
     let justWaited = false;
+    // Waits for a limit every user shares (BUSY_MS); they give the attempt back, so they never spend a retry.
+    let busy = 0;
+    let busyMs = 0;
+    const busyTurn = async (w: number) => {
+      if (busy >= BUSY_TRIES || busyMs + w > BUSY_MS || !(await waitFor(w, most))) return false;
+      busy++;
+      busyMs += w;
+      return true;
+    };
     for (let attempt = 0; attempt <= tries; attempt++) {
       if (o.signal?.aborted) throw new HttpError(0, 'scan aborted', 'aborted');
       if (o.deadline !== undefined && Date.now() >= o.deadline) throw new HttpError(0, 'scan time limit reached', 'timeout');
@@ -316,6 +355,8 @@ export function createHttp(o: HttpOptions = {}): Http {
         const w = waitFromHeaders(res.headers) ?? backoff(attempt + 2);
         st.blockedUntil = Date.now() + w;
         last = new HttpError(429, `${host} rate limit reached`, 'rate_limit');
+        // On a keyed source a 429 through the relay is the key's limit, which every visitor shares: waited out.
+        if (shared && (await busyTurn(Math.max(w, busyWait(busy, random))))) { attempt--; justWaited = true; continue; }
         if (attempt < tries && (await waitFor(w + Math.round(random() * 500), most))) { justWaited = true; continue; }
         throw last;
       }
@@ -343,6 +384,16 @@ export function createHttp(o: HttpOptions = {}): Http {
         if (attempt < tries && (await waitFor(w, most))) { justWaited = true; continue; }
         throw last;
       }
+      // A node that is too busy for this second: NodeReal at its capacity is waited out (shared), a public node's
+      // own limit on this visitor is retried like a 429.
+      if (rpcBusy(text)) {
+        last = new HttpError(429, `${host} rate limit reached`, 'rate_limit');
+        const w = busyWait(busy, random);
+        st.blockedUntil = Date.now() + w;
+        if (shared && (await busyTurn(w))) { attempt--; justWaited = true; continue; }
+        if (!shared && attempt < tries && (await waitFor(w, most))) { justWaited = true; continue; }
+        throw last;
+      }
       return text;
     }
     throw last ?? new HttpError(0, `${host} failed`, 'network');
@@ -351,11 +402,27 @@ export function createHttp(o: HttpOptions = {}): Http {
   async function fetchText(url: string, init: RequestInit | undefined, call: CallOptions): Promise<string> {
     const tries = call.retries ?? retries, tmo = call.timeoutMs ?? timeoutMs;
     const tt = call.timeoutRetries ?? 1, gap = call.minGapMs ?? 0;
+    // A paced keyless source (Etherscan without a key: one call per 5 s, and about half of them refused) that the
+    // relay can serve with its own key: the relay first. It answers `nokey` at once when it holds none, and this
+    // page then goes straight to the source for ten minutes, as before. Any other trouble on the relay falls back
+    // to the paced road too. Linea took 10 to 52 s this way for a handful of rows (30 known wallets).
+    const keyRelay = o.relay ?? o.fallbackProxy;
+    if (gap > 0 && keyRelay && !o.proxy && !relayDown(keyRelay) && !noKeyFor(keyRelay, url)) {
+      try {
+        const text = await road(url, init, keyRelay, 0, tmo, Math.min(maxWaitMs, FALLBACK_AFTER_MS), 0);
+        // Its key may not cover this chain ("not supported", "upgrade"): an Etherscan refusal of status 0 that is
+        // not an empty list is no answer, so the paced road reads it as before.
+        if (!(text.length < 600 && /"status"\s*:\s*"0"/.test(text) && !/no (transactions|records|token transfers|internal transactions) found/i.test(text))) return text;
+      } catch (e) {
+        if (e instanceof HttpError && (e.kind === 'aborted' || e.kind === 'budget')) throw e;
+        if (e instanceof HttpError && e.kind === 'needs_key') NO_KEY.set(`${new URL(keyRelay).host} ${new URL(url).host}`, Date.now() + RELAY_DOWN_MS);
+      }
+    }
     if (call.via === 'relay') {
       const relay = o.relay ?? o.fallbackProxy ?? o.proxy;
       if (!relay) throw new HttpError(0, 'no relay configured for a keyed source', 'needs_key');
       if (relayDown(relay)) throw new HttpError(0, 'no relay for this page', 'needs_key');
-      return road(url, init, relay, tries, tmo, maxWaitMs, tt);
+      return road(url, init, relay, tries, tmo, maxWaitMs, tt, 0, true);
     }
     if (o.proxy || !o.fallbackProxy) return road(url, init, o.proxy, tries, tmo, maxWaitMs, tt, gap);
     // The direct road on its own, waiting out a window up to the longest wait: no relay can help.

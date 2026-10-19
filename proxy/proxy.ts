@@ -256,7 +256,7 @@ export async function handle(req: Request, env: ProxyEnv = {}): Promise<Response
 
   const up = rewrite(target, env);
   if (up.keyed === 'pro' && creditsLow()) {
-    return json(503, { error: 'quota', message: 'The relay has spent its free daily quota. It resets at 00:00 UTC.' }, { 'x-nymra-relay': 'quota' });
+    return json(503, { error: 'quota', message: 'The relay has spent its daily quota. It resets at 00:00 UTC.' }, { 'x-nymra-relay': 'quota' });
   }
   if ((target.host === ETHERSCAN_HOST || target.host === NODEREAL_HOST || ROADS.get(target.host) === 'alchemy') && !up.keyed) {
     return json(503, { error: 'not configured', message: 'This chain needs an API key that the relay does not have.' }, { 'x-nymra-relay': 'nokey' });

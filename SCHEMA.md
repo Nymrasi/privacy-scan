@@ -277,12 +277,26 @@ Etherscan-compatible `/api` only 10 an hour. So the scan uses only `/api/v2`, an
   token transfers and 50 internal transfers (one try, up to 90 s: Base needed 43 to 59 s for vitalik.eth),
   plus one page of the oldest for a long history, started as soon as the history is known to be long. The
   caps are counts, not a time budget, so two scans of the same wallet read the same rows;
+- an address that is no person (code on any chain read, a bundled exchange or service label, 50,000 or
+  more transactions sent on one chain, or the explorer's own exchange tag on its rows) reads only its
+  newest page per chain: 50 transactions, token transfers only where it has no transaction, no internal
+  transfers and no oldest page. Its card has no score and shows its names and where it is active, which
+  that page holds. The scan cuts every chain to this shape however early it learned what the address is,
+  so two scans still read the same rows; `opts.readAll` reads such an address in full;
+- Ethereum's internal list asks its second source (Routescan) after 3 s without an answer, or at once
+  when the first fails; the first answer counts;
 - **pacing per host**: `x-ratelimit-remaining` and `x-ratelimit-reset` are CORS-exposed, so the
   browser reads them; with 4 or fewer requests left, new requests wait for the window instead of
   running into a 429. At most 4 requests run at once per host;
 - **retries**: a 429 waits for `Retry-After` or `x-ratelimit-reset` (up to 65 s; with a fallback
   proxy configured, up to 10 s, then the proxy); 5xx, timeouts and network errors retry with
   exponential backoff and full jitter (400 ms base, 8 s cap, 3 retries);
+- **a limit every user shares**: a keyed source through the relay (BNB Smart Chain's NodeReal, one key
+  for every visitor) that answers `-32005` with the words of a rate (at its compute units a second,
+  HTTP 200) or a 429 is waited out for up to a minute per request without spending those retries, in
+  turns of half a second plus a random part that widens fast (at most 24), so the waiting visitors
+  spread out. A public node's own `-32005` on this visitor, and a relay that is itself limited on a
+  fallback read, keep the 3 retries; a `-32005` about a query that is too large is an answer;
 - a bot wall (403 with an HTML challenge, or HTML instead of JSON) is not retried on the same road:
   Ethereum switches to Routescan, other chains use the fallback proxy when configured;
 - extra lookups (funders, deposit addresses) have a fixed budget of 14, never sized to the quota

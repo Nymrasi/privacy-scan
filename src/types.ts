@@ -277,6 +277,12 @@ export interface ScanOptions {
   keyedAlts?: Array<'alchemy'>;
   /** Skip the cheap RPC nonce + balance check and read every chain from its explorer. */
   noPrecheck?: boolean;
+  /**
+   * Read every list in full also for an address that is no person (a contract, a service, a bot). Default
+   * false: such an address reads only the newest page of each chain, which is all its card shows (history.ts
+   * QUICK_ROWS).
+   */
+  readAll?: boolean;
   /** Holder gate: findings marked `deep` are withheld when holderBalance < threshold. V1 threshold 0. */
   gate?: { threshold: number; holderBalance: number };
   /** Most network requests this scan may make. Default 600. */

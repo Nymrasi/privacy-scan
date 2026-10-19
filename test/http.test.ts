@@ -251,3 +251,137 @@ test("Etherscan without a key refuses part of its calls with 'Missing/Invalid AP
   assert.equal((await keyed.http.getJson('https://api.etherscan.io/v2/api?q=2')).status, '0');
   assert.equal(keyed.log.length, 1);
 });
+
+// Linea read keyless took 10 to 52 s for a handful of rows (one call per 5 s, about half refused). A
+// paced keyless source asks the relay first, which serves it with its own key; straight only when it holds none.
+const LINEA = (i: number) => `https://api.etherscan.io/v2/api?chainid=59144&module=account&action=txlist&i=${i}`;
+function relayRig(relay: () => Reply, direct: Reply) {
+  const log: string[] = [];
+  const slept: number[] = [];
+  const fetch = (async (input: string | URL) => {
+    const u = String(input);
+    log.push(u);
+    const r = u.startsWith('https://site.test/p?u=') ? relay() : direct;
+    return new Response(r.body ?? '', { status: r.status ?? 200, headers: r.headers ?? {} });
+  }) as typeof globalThis.fetch;
+  const http = createHttp({ cache: null, fallbackProxy: 'https://site.test/p', random: () => 0.5, sleep: async (ms) => { slept.push(ms); }, fetch });
+  return { http, log, slept, viaRelay: () => log.filter((u) => u.startsWith('https://site.test/p')).length, direct: () => log.filter((u) => u.startsWith('https://api.etherscan.io/')).length };
+}
+const refusedKeyless = ok({ status: '0', message: 'NOTOK', result: 'Missing/Invalid API Key' });
+
+test('a paced keyless source asks the relay first: with its key, three calls in one go and no turn waited', async () => {
+  const r = relayRig(() => ok({ status: '1', message: 'OK', result: [{ hash: '0x1' }] }), refusedKeyless);
+  const all = await Promise.all([1, 2, 3].map((i) => r.http.getJson(LINEA(i), undefined, { minGapMs: 5200, retries: 6 })));
+  assert.ok(all.every((j) => j.result.length === 1));
+  assert.equal(r.viaRelay(), 3);
+  assert.equal(r.direct(), 0, 'the keyless source is never asked');
+  assert.deepEqual(r.slept, [], 'no paced turn');
+});
+
+test('an empty list from the relay is an answer, not a refusal', async () => {
+  const r = relayRig(() => ok({ status: '0', message: 'No transactions found', result: [] }), refusedKeyless);
+  assert.deepEqual((await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200 })).result, []);
+  assert.equal(r.direct(), 0);
+});
+
+test('a relay without the key says nokey once: that call and every later one in this page go straight, paced as before', async () => {
+  const r = relayRig(() => ({ status: 503, body: JSON.stringify({ error: 'not configured' }), headers: { 'content-type': 'application/json', 'x-nymra-relay': 'nokey' } }), ok({ status: '1', message: 'OK', result: [] }));
+  await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200 });
+  await r.http.getJson(LINEA(2), undefined, { minGapMs: 5200 });
+  assert.equal(r.viaRelay(), 1, 'the relay is asked once');
+  assert.equal(r.direct(), 2);
+  assert.ok(r.slept.some((ms) => ms >= 5000), `the second call waits its turn: ${JSON.stringify(r.slept)}`);
+});
+
+test('a relay key that does not cover the chain reads it straight, it never fails the chain', async () => {
+  const r = relayRig(() => ok({ status: '0', message: 'NOTOK', result: 'Free API access is not supported for this chain. Please upgrade your api plan' }), ok({ status: '1', message: 'OK', result: [{ hash: '0x2' }] }));
+  assert.equal((await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200 })).result[0].hash, '0x2');
+  assert.equal(r.direct(), 1);
+});
+
+// NodeReal's MegaNode at its capacity (free plan: 300 compute units a second for every user of the relay's one key
+// together, one BNB history call is 250): it answers HTTP 200 with a JSON-RPC error. Before this fix that error went
+// straight to noderealList, which threw it, so at a launch's peak BNB Smart Chain failed for whoever came a moment late.
+const BUSY = { jsonrpc: '2.0', id: 1, error: { code: -32005, message: 'Your account has exceeded its Compute Units Per Second capacity. Please check out https://docs.nodereal.io/docs/cups-rate-limit and upgrade to Growth, Team or Business tier for higher rate limit.' } };
+const NR = 'https://bsc-mainnet.nodereal.io/v1/';
+
+/** NodeReal through the relay, as the scan reads it (`via: 'relay'`): its one key is every visitor's. */
+function nodereal(replies: Reply[], retries?: number) {
+  const log: string[] = [];
+  const slept: number[] = [];
+  const http = createHttp({ cache: null, fetch: scripted(replies, log), relay: 'https://site.test/p', random: () => 0.5, sleep: async (ms) => { slept.push(ms); }, ...(retries === undefined ? {} : { retries }) });
+  const get = () => http.getJson(NR, { method: 'POST', body: '{"id":1}' }, { via: 'relay' });
+  return { http, log, slept, get };
+}
+
+test("NodeReal over its capacity (-32005 with HTTP 200, through the relay) is a short turn to wait for, and its waits never spend a retry", async () => {
+  const r = nodereal([ok(BUSY), ok(BUSY), ok(BUSY), ok(BUSY), ok({ jsonrpc: '2.0', id: 1, result: { transfers: [] } })], 1);
+  assert.deepEqual((await r.get()).result, { transfers: [] });
+  assert.equal(r.log.length, 5);
+  assert.deepEqual(r.slept, [1250, 2000, 3500, 4500], 'half a second plus a random part that widens fast (half of it here)');
+});
+
+test("a public node's own -32005 on this visitor is retried like a 429: three retries, not a minute", async () => {
+  const { http, log } = rig({ replies: [ok(BUSY)] });
+  await assert.rejects(http.getJson('https://bsc-rpc.publicnode.com', { method: 'POST', body: '{}' }), (e: any) => e instanceof HttpError && e.kind === 'rate_limit');
+  assert.equal(log.length, 4);
+});
+
+test('the same inside a batch (a quick check of three calls at once)', async () => {
+  const { http, log } = rig({ replies: [ok([{ jsonrpc: '2.0', id: 1, result: '0x1' }, BUSY]), ok([{ jsonrpc: '2.0', id: 1, result: '0x1' }, { jsonrpc: '2.0', id: 2, result: '0x0' }])] });
+  const j = await http.getJson('https://bsc-rpc.publicnode.com', { method: 'POST', body: '[]' });
+  assert.equal(j[1].result, '0x0');
+  assert.equal(log.length, 2);
+});
+
+test('-32005 about a query that is too large is no rate limit: one call, the answer as it came', async () => {
+  const big = { jsonrpc: '2.0', id: 1, error: { code: -32005, message: 'query returned more than 10000 results' } };
+  const { http, log } = rig({ replies: [ok(big)] });
+  assert.deepEqual(await http.getJson('https://ethereum-rpc.publicnode.com', { method: 'POST', body: '{}' }), big);
+  assert.equal(log.length, 1);
+});
+
+test('NodeReal that stays over its capacity gives up after a minute of waiting: a rate limit, never a hang', async () => {
+  const r = nodereal([ok(BUSY)], 0);
+  await assert.rejects(r.get(), (e: any) => e instanceof HttpError && e.kind === 'rate_limit');
+  const waited = r.slept.reduce((a, b) => a + b, 0);
+  assert.ok(waited <= 60000 && waited > 55000, `about a minute: ${waited} ms in ${r.slept.length} turns`);
+  assert.equal(r.log.length, r.slept.length + 1);
+});
+
+test('a relay that is itself limited on a fallback read keeps the three retries: no minute on a chain that will not open', async () => {
+  const log: string[] = [];
+  const f = (async (input: string | URL) => {
+    const u = String(input);
+    log.push(u);
+    return new Response('{"message":"Too Many Requests"}', { status: 429, headers: { 'x-ratelimit-reset': u.startsWith('https://proxy.test/') ? '1500' : '40000', 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const slept: number[] = [];
+  const http = createHttp({ cache: null, fetch: f, fallbackProxy: 'https://proxy.test/p', random: () => 0.5, sleep: async (ms) => { slept.push(ms); } });
+  await assert.rejects(http.getJson('https://arbitrum.blockscout.com/api/v2/addresses/0x1/transactions'), (e: any) => e instanceof HttpError && e.kind === 'rate_limit');
+  assert.equal(log.filter((u) => u.startsWith('https://proxy.test/')).length, 4, 'the relay: one call and three retries');
+  assert.ok(slept.reduce((a, b) => a + b, 0) < 10000, `waited ${JSON.stringify(slept)}`);
+});
+
+test('a 429 through the relay (a limit every user shares) is waited out beyond its own retries, at least its Retry-After each time', async () => {
+  const log: string[] = [];
+  let n = 0;
+  const f = (async (input: string | URL) => {
+    log.push(String(input));
+    return ++n <= 5
+      ? new Response('{"error":"too many requests"}', { status: 429, headers: { 'retry-after': '2', 'content-type': 'application/json', 'x-nymra-relay': 'rate' } })
+      : new Response('{"jsonrpc":"2.0","id":1,"result":{"transfers":[]}}', { headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  const slept: number[] = [];
+  const http = createHttp({ cache: null, fetch: f, relay: 'https://site.test/p', random: () => 0.5, sleep: async (ms) => { slept.push(ms); } });
+  const j = await http.getJson(NR, { method: 'POST', body: '{"id":1}' }, { via: 'relay' });
+  assert.deepEqual(j.result, { transfers: [] });
+  assert.equal(log.length, 6, 'five 429s and the answer, with the default three retries');
+  assert.deepEqual(slept, [2000, 2000, 3500, 4500, 4500], 'Retry-After (2 s), or the widening busy turn when it is longer');
+});
+
+test('a 429 on the direct road keeps its three retries: only a shared limit gets the longer patience', async () => {
+  const { http, log } = rig({ replies: [{ status: 429, headers: { 'retry-after': '1' } }] });
+  await assert.rejects(http.getJson('https://eth.blockscout.com/api/v2/x'), (e: any) => e instanceof HttpError && e.kind === 'rate_limit');
+  assert.equal(log.length, 4);
+});

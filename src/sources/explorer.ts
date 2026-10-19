@@ -25,6 +25,10 @@ export interface ListQuery {
   timeoutMs?: number;
   retries?: number;
   timeoutRetries?: number;
+  /** Asked before each page after the first: true stops the list there (the address is no person, see history.ts `quick`). */
+  stop?: () => boolean;
+  /** Told the rows of each page as it comes in (Etherscan shape), so the scan can learn what the address is early. */
+  onPage?: (rows: any[]) => void;
 }
 
 /** A list cut short by its deadline carries `cut = true`. */
@@ -81,9 +85,11 @@ async function noderealList(http: Http, chain: ChainDef, action: AccountAction, 
     const j = await http.getJson(chain.source.api, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'nr_getTransactionByAddress', params: [params] }) }, { timeoutMs: q.timeoutMs, retries: q.retries, via: 'relay' });
     if (j?.error) throw new Error(`${chain.name}: ${String(j.error.message ?? 'source error').slice(0, 120)}`);
     const rows: any[] = Array.isArray(j?.result?.transfers) ? j.result.transfers : [];
+    const from = out.length;
     for (const x of rows) { out.push(noderealRow(action, x)); if (out.length >= want) break; }
+    if (out.length > from) q.onPage?.(out.slice(from));
     pageKey = rows.length && j?.result?.pageKey ? String(j.result.pageKey) : undefined;
-  } while (pageKey && out.length < want);
+  } while (pageKey && out.length < want && !q.stop?.());
   return out;
 }
 
@@ -208,6 +214,7 @@ async function blockscoutList(http: Http, chain: ChainDef, action: AccountAction
   const out: Rows = [];
   while (next && out.length < want) {
     if (q.deadline !== undefined && out.length > 0 && Date.now() > q.deadline) { out.cut = true; break; }
+    if (out.length > 0 && q.stop?.()) break;
     const p = new URLSearchParams(fixed);
     for (const [k, v] of Object.entries(next)) if (v !== null && v !== undefined) p.set(k, String(v));
     const qs = p.toString();
@@ -220,11 +227,13 @@ async function blockscoutList(http: Http, chain: ChainDef, action: AccountAction
     }
     const items: any[] = Array.isArray(j?.items) ? j.items : [];
     let done = false;
+    const from = out.length;
     for (const x of items) {
       if (q.startblock !== undefined && q.sort !== 'asc' && Number(x.block_number) < q.startblock) { done = true; break; }
       out.push(v2Row(action, x));
       if (out.length >= want) break;
     }
+    if (out.length > from) q.onPage?.(out.slice(from));
     next = done ? null : j?.next_page_params ?? null;
   }
   return out;
@@ -239,7 +248,10 @@ export async function accountList(http: Http, chain: ChainDef, action: AccountAc
   // A keyless source that refuses about half of its calls for a moment gets more tries (7: 1 in 128 left).
   const tries = gap ? Math.max(q.retries ?? 0, KEYLESS_RETRIES) : q.retries;
   const j = await http.getJson(apiUrl(chain, action, address, q), undefined, { timeoutMs: q.timeoutMs, retries: tries, ...(keyed(chain.source) ? { via: 'relay' as const } : {}), ...(gap ? { minGapMs: gap } : {}) });
-  if (Array.isArray(j?.result)) return j.result;
+  if (Array.isArray(j?.result)) {
+    if (j.result.length) q.onPage?.(j.result);
+    return j.result;
+  }
   const msg = String(j?.message ?? '') + ' ' + String(j?.result ?? '');
   if (/no (transactions|records|token transfers|internal transactions)|not found/i.test(msg)) return [];
   throw new Error(`${chain.name}: ${msg.trim().slice(0, 120) || 'unexpected answer'}`);

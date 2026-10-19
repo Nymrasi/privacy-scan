@@ -398,7 +398,7 @@ function keyedFetch(log: string[], o: { relayKeys: boolean; quota?: boolean; pre
     if (url.startsWith('https://relay.test/p?u=')) {
       log.push(url);
       const inner = decodeURIComponent(url.split('?u=')[1]);
-      if (o.quota) return new Response('{"error":"quota","message":"The relay has spent its free daily quota. It resets at 00:00 UTC."}', { status: 503, headers: { 'content-type': 'application/json', 'x-nymra-relay': 'quota' } });
+      if (o.quota) return new Response('{"error":"quota","message":"The relay has spent its daily quota. It resets at 00:00 UTC."}', { status: 503, headers: { 'content-type': 'application/json', 'x-nymra-relay': 'quota' } });
       if (!o.relayKeys) return new Response('{"error":"not configured"}', { status: 503, headers: { 'content-type': 'application/json', 'x-nymra-relay': 'nokey' } });
       if (inner.startsWith('https://bsc-mainnet.nodereal.io/')) {
         const p = JSON.parse(String(init!.body)).params[0];
@@ -420,27 +420,27 @@ test('BNB without a relay key: skipped, never a failed read; where the wallet se
   const c = r.coverage.find((x) => x.chainId === 56)!;
   assert.equal(c.status, 'skipped');
   assert.deepEqual(c.precheck, { sent: 1, holds: false });
-  assert.ok(c.limitations.some((l) => /needs a free API key/.test(l)));
+  assert.ok(c.limitations.some((l) => /is read through the Nymra relay, which has no key for it\.$/.test(l)));
   // the score does not cover a chain the wallet used. A key is not a rate limit, so it is no failed read either.
   assert.equal(r.status, 'partial');
   assert.deepEqual(r.incomplete.map((g) => [g.part, g.chainId]), [['skipped', 56]]);
-  assert.equal(r.incomplete[0].reason, 'BNB Smart Chain: not read, although this wallet sent 1 transaction here (the Nymra relay has no key for this chain yet)');
+  assert.equal(r.incomplete[0].reason, 'BNB Smart Chain: not read, although this wallet sent 1 transaction here (the Nymra relay has no key for this chain)');
   assert.ok(!r.coverage.some((c) => c.status === 'error'), 'never a failed read');
   const none = await scan(ME, { chainIds: [56], fetch: keyedFetch([], { relayKeys: true }), cache: false });
   assert.equal(none.coverage[0].status, 'skipped', 'no relay at all: skipped as well');
   assert.deepEqual(none.incomplete.map((g) => g.part), ['skipped']);
 });
 
-test('the relay\'s free daily quota is spent: BNB is skipped until 00:00 UTC, the score covers the rest, partial, never a failed read', async () => {
+test('the relay\'s daily quota is spent: BNB is skipped until 00:00 UTC, the score covers the rest, partial, never a failed read', async () => {
   const r = await scan(ME, { chainIds: [1, 56], fetch: keyedFetch([], { relayKeys: true, quota: true }), relay: 'https://relay.test/p' });
   const c = r.coverage.find((x) => x.chainId === 56)!;
   assert.equal(c.status, 'skipped');
   assert.equal(c.skipReason, 'quota');
-  assert.ok(c.limitations.some((l) => /free daily quota is spent\. It comes back at 00:00 UTC/.test(l)));
+  assert.ok(c.limitations.some((l) => /whose daily quota is spent\. It comes back at 00:00 UTC/.test(l)));
   assert.ok(!r.coverage.some((c) => c.status === 'error'), 'no failed read, so the site gives a score');
   assert.equal(r.status, 'partial');
   assert.deepEqual(r.incomplete.map((g) => g.part), ['skipped']);
-  assert.equal(r.incomplete[0].reason, "BNB Smart Chain: not read, although this wallet sent 1 transaction here (the Nymra relay's free daily quota is spent; it comes back at 00:00 UTC)");
+  assert.equal(r.incomplete[0].reason, "BNB Smart Chain: not read, although this wallet sent 1 transaction here (the Nymra relay's daily quota is spent; it comes back at 00:00 UTC)");
   assert.ok(r.findings.length > 0, 'the rest is scored');
   const nokey = await scan(ME, { chainIds: [56], fetch: keyedFetch([], { relayKeys: false }), relay: 'https://relay.test/p', cache: false });
   assert.equal(nokey.coverage[0].skipReason, 'no_key');
@@ -455,7 +455,7 @@ test('a keyless chain that only fell back to the relay and met its spent quota s
   const b = r.coverage.find((c) => c.chainId === 8453)!;
   assert.equal(b.status, 'error');
   assert.equal(b.skipReason, undefined);
-  assert.deepEqual(r.incomplete.find((g) => g.chainId === 8453), { part: 'chain', chainId: 8453, name: 'Base', reason: "Base: the relay's free daily quota is spent" });
+  assert.deepEqual(r.incomplete.find((g) => g.chainId === 8453), { part: 'chain', chainId: 8453, name: 'Base', reason: "Base: the relay's daily quota is spent" });
 });
 
 test('BNB without a relay key where the wallet only holds BNB: a gap that says so; an empty Linea: no gap and no relay call', async () => {
@@ -467,7 +467,7 @@ test('BNB without a relay key where the wallet only holds BNB: a gap that says s
   assert.equal(linea.status, 'no_activity');
   assert.deepEqual(linea.precheck, { sent: 0, holds: false });
   assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'an empty chain costs no relay call');
-  assert.deepEqual(r.incomplete.map((g) => [g.part, g.chainId, g.reason]), [['skipped', 56, 'BNB Smart Chain: not read, although this wallet holds BNB here (the Nymra relay has no key for this chain yet)']]);
+  assert.deepEqual(r.incomplete.map((g) => [g.part, g.chainId, g.reason]), [['skipped', 56, 'BNB Smart Chain: not read, although this wallet holds BNB here (the Nymra relay has no key for this chain)']]);
   assert.equal(r.status, 'partial');
 });
 
@@ -479,7 +479,7 @@ test('collectIncomplete: a skipped chain is a gap only where the quick check saw
   });
   assert.deepEqual(collectIncomplete([row()], [], [], false), [], 'no quick check (a chain outside the register): no gap');
   assert.deepEqual(collectIncomplete([row({ sent: 0, holds: false })], [], [], false), []);
-  assert.equal(collectIncomplete([row({ sent: 3, holds: true })], [], [], false)[0].reason, 'BNB Smart Chain: not read, although this wallet sent 3 transactions here (the Nymra relay has no key for this chain yet)');
+  assert.equal(collectIncomplete([row({ sent: 3, holds: true })], [], [], false)[0].reason, 'BNB Smart Chain: not read, although this wallet sent 3 transactions here (the Nymra relay has no key for this chain)');
 });
 
 // ---------- the name and labels are hard gaps, the side lists of a name are not ----------
@@ -543,10 +543,13 @@ test('serviceByTags: only explorer tags that say "service" outright (slug sets a
   }
 });
 
-test('BNB through the relay (NodeReal) and Linea straight from Etherscan V2 without a key: read, normalised, never a key in the scan', async () => {
+test('BNB through the relay (NodeReal) and Linea through the relay that holds its key, read, normalised, never a key in the scan', async () => {
   const log: string[] = [];
   const r = await scan(ME, { chainIds: [56, 59144], fetch: keyedFetch(log, { relayKeys: true }), relay: 'https://relay.test/p' });
-  assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'Linea never goes through the relay');
+  // Linea needs no relay (read keyless where the relay cannot serve the page, see the next tests); a relay
+  // that holds an Etherscan key serves it first, as one call per 5 s without a key took Linea 10 to 52 s.
+  assert.ok(log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'Linea through the relay with its key');
+  assert.ok(!log.some((u) => u.startsWith('https://api.etherscan.io/')), 'and not straight as well');
   const bnb = r.coverage.find((x) => x.chainId === 56)!;
   const linea = r.coverage.find((x) => x.chainId === 59144)!;
   assert.equal(bnb.status, 'scanned');

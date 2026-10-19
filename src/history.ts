@@ -64,6 +64,43 @@ export interface ChainHistory {
   coverage: ChainCoverage;
   /** What the explorer says about this address itself, from its own side of the rows (Blockscout only). */
   self?: SelfTags;
+  /** Cut to what the card of an address that is no person needs: see `quickShape`. */
+  quick?: true;
+}
+
+/**
+ * An address that is no person (a contract, a service, a bot) gets a card without a score: its name, its
+ * labels and where it is active. That needs the newest page of its transactions on each chain it used, not
+ * its whole history. Read in full, such an address took 20 to 60 s, nearly all of it paging lists its card
+ * never shows (30 known wallets: USDC 55 s, Layerswap 63 s, WETH 52 s, exchange wallets 21 to
+ * 29 s). This many rows per chain, one Blockscout page.
+ */
+export const QUICK_ROWS = 50;
+/** The coverage line of a chain read as `QUICK_ROWS`. Says "history", so the generic long-history line is not added. */
+export const QUICK_LIMIT = 'This address is not a personal wallet, so only the newest part of its history was read here, which is enough to name it.';
+
+/**
+ * The history of an address that is no person, as its card reads it: the newest `QUICK_ROWS` transactions,
+ * its newest token transfers only on a chain where it has none, no internal transfers and nothing older. The
+ * same shape whatever this run read before it knew what the address is, so two scans give one result.
+ */
+export function quickShape(h: ChainHistory): ChainHistory {
+  const st = h.coverage.status;
+  if (h.quick || st === 'no_activity' || st === 'skipped' || st === 'error') return h;
+  const txs = h.txs.slice(0, QUICK_ROWS);
+  const tokens = txs.length ? [] : h.tokens.slice(0, QUICK_ROWS);
+  const ts = [...txs, ...tokens].map((t) => t.timestamp).filter((x) => x > 0);
+  const coverage: ChainCoverage = {
+    ...h.coverage, status: 'scanned', txCount: txs.length, tokenTransferCount: tokens.length,
+    internalTransfers: h.chain.traces === false ? 'none' : 'not_fetched',
+    truncated: h.truncated || h.txs.length >= QUICK_ROWS || h.tokens.length > tokens.length,
+    limitations: [...(h.chain.limits ?? []), QUICK_LIMIT], missing: [], firstSeen: undefined,
+    lastSeen: ts.length ? Math.max(...ts) : undefined,
+  };
+  return {
+    ...h, txs, tokens, internal: [], ownCount: txs.filter((t) => t.dir !== 'in').length, firstOwn: undefined,
+    firstFunding: undefined, truncated: coverage.truncated, coverage, quick: true,
+  };
 }
 
 /** Explorer tags on the scanned address: name tags ("Binance 14", "Vitalik Buterin"), all tag slugs, the entity they name. */
@@ -109,8 +146,13 @@ export const SIDE_SHARE = 0.75;
  * source (Routescan) gives the same newest page in 1 to 1.6 s. A chain with such a second source asks
  * it too once the first has not answered in this long, or has failed; the first answer counts. A first
  * answer in time never asks the second.
+ *
+ * 3 s, not 12: a light wallet waited the whole 12 s too. On jesse.base.eth Blockscout's
+ * internal list never answered while Routescan gave it in 0.13 s once asked, so Ethereum took 12.2 s for
+ * four reads of under 0.4 s each. Blockscout answers a normal wallet's internal list well within a second,
+ * so 3 s asks the second source only when the first stalls.
  */
-export const ALT_INTERNAL_AFTER_MS = 12_000;
+export const ALT_INTERNAL_AFTER_MS = 3_000;
 
 /** `first`, and after `afterMs` without an answer (or at once when it fails) also `second()`: the first answer wins. */
 function raceAfter<T>(first: Promise<T>, second: () => Promise<T>, afterMs: number): Promise<T> {
@@ -245,6 +287,15 @@ export interface FetchLimits {
   /** When a slow internal list also asks the chain's second keyless source (tests); see ALT_INTERNAL_AFTER_MS. */
   altInternalAfterMs?: number;
   /**
+   * True once the scan knows the address is no person (see QUICK_ROWS). Asked at the start of each list and
+   * before each next page, since the scan can learn it while this chain reads.
+   */
+  quick?: () => boolean;
+  /** Resolves when `quick()` turns true: a side list still in flight is then not waited for. */
+  quickNow?: Promise<void>;
+  /** Told what this chain saw first: its quick check, then each page of its two main lists. */
+  saw?: (x: { chainId: ChainId; pre?: { nonce: number; code?: boolean }; rows?: any[] }) => void;
+  /**
    * Optional time budget per chain for paging, ms. Off by default: a list cut by time depends on how
    * fast the explorer was, so two scans of one wallet would read different data. When set and hit,
    * the chain is marked `partial`.
@@ -280,10 +331,15 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
   };
   let pre: { nonce: number; balance: bigint; code?: boolean } | null = null;
   const empty = (): ChainHistory => ({ chain, txs: [], internal: [], tokens: [], ownCount: 0, truncated: false, coverage, ...(pre ? { nonce: pre.nonce, code: pre.code } : {}) });
+  // An address that is no person reads only what its card needs (QUICK_ROWS), from the moment the scan knows it.
+  const quick = () => lim.quick?.() === true;
   try {
     if (chain.rpc && !lim.noPrecheck) {
       const p = pre = await presence(http, chain.rpc, me).catch(() => null);
-      if (p) coverage.precheck = { sent: p.code ? 0 : p.nonce, holds: p.balance > 0n };
+      if (p) {
+        coverage.precheck = { sent: p.code ? 0 : p.nonce, holds: p.balance > 0n };
+        lim.saw?.({ chainId: chain.id, pre: p });
+      }
       if (p && p.nonce === 0 && p.balance === 0n) {
         coverage.status = 'no_activity';
         coverage.limitations.push(`Quick check only: no transaction sent and no ${chain.native} held. Tokens that were only received are not listed.`);
@@ -293,11 +349,11 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     }
     // Fixed page caps, so the same wallet always reads the same rows. Retries with backoff live in http.ts.
     const deadline = lim.chainBudgetMs !== undefined ? Date.now() + lim.chainBudgetMs : undefined;
-    const main = { sort: 'desc' as const, deadline, timeoutMs: 15000 };
+    const main = { sort: 'desc' as const, deadline, timeoutMs: 15000, stop: quick, onPage: (rows: any[]) => lim.saw?.({ chainId: chain.id, rows }) };
     // Internal transfers are slow on big addresses: page 1 takes 12 to 14 s on OP for a wallet like vitalik.eth (2026-10-16).
     const sideMs = lim.sideBy !== undefined ? Math.max(2000, Math.min(INTERNAL_TIMEOUT_MS, lim.sideBy - Date.now())) : INTERNAL_TIMEOUT_MS;
     const side = { sort: 'desc' as const, deadline, timeoutMs: sideMs, retries: 1, timeoutRetries: 0 };
-    const list = (c: ChainDef) => accountList(http, c, 'txlist', me, { ...main, offset: lim.maxTx });
+    const list = (c: ChainDef) => accountList(http, c, 'txlist', me, { ...main, offset: quick() ? QUICK_ROWS : lim.maxTx });
     // The internal list, raced against the chain's second keyless source when it is slow (Ethereum).
     const internalOf = (c: ChainDef): Promise<Rows> => {
       const first = accountList(http, c, 'txlistinternal', me, { ...side, offset: lim.maxInternal });
@@ -306,8 +362,15 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       return raceAfter(first, () => accountList(http, alt, 'txlistinternal', me, { sort: 'desc', deadline, timeoutMs: 15000, retries: 1, timeoutRetries: 0, offset: lim.maxInternal }), lim.altInternalAfterMs ?? ALT_INTERNAL_AFTER_MS);
     };
     // Start all three together; on a refusal of the main list, switch source and restart.
-    let tokP = accountList(http, chain, 'tokentx', me, { ...main, offset: lim.maxToken });
-    let intP = traces ? internalOf(chain) : Promise.resolve([] as Rows);
+    const tokens$ = () => accountList(http, chain, 'tokentx', me, { ...main, offset: quick() ? QUICK_ROWS : lim.maxToken });
+    const internal$ = () => (traces && !quick() ? internalOf(chain) : Promise.resolve([] as Rows));
+    // A source that gives one call per turn (Etherscan without a key, Linea): for an address that is no person its
+    // token list waits until the transactions turn out empty, the only case its card reads it, so it never takes a
+    // turn from them (USDC's Linea took 5 turns, 21 s, for one list of 50).
+    const paced = chain.source.kind === 'etherscan' && !!chain.source.minGapMs;
+    const later = quick() && paced;
+    let tokP = later ? Promise.resolve([] as Rows) : tokens$();
+    let intP = internal$();
     // Handled here, read below: a refused main list must not leave these two as unhandled rejections.
     tokP.catch(() => {}); intP.catch(() => {});
     let first: Rows;
@@ -319,14 +382,18 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       chain = { ...chain, source: alt };
       coverage.source = alt.kind;
       first = await list(chain);
-      tokP = accountList(http, chain, 'tokentx', me, { ...main, offset: lim.maxToken });
-      intP = traces ? internalOf(chain) : Promise.resolve([] as Rows);
+      tokP = tokens$();
+      intP = internal$();
       tokP.catch(() => {}); intP.catch(() => {});
     }
+    if (later && first.length === 0) { tokP = tokens$(); tokP.catch(() => {}); }
     // The oldest page of a long history starts as soon as the main list says it is long: it does not wait for the slow internal list.
-    const oldTxP = first.length >= lim.maxTx || first.cut ? accountList(http, chain, 'txlist', me, { sort: 'asc', offset: 50, timeoutMs: 15000 }) : Promise.resolve([] as Rows);
+    const oldTxP = !quick() && (first.length >= lim.maxTx || first.cut) ? accountList(http, chain, 'txlist', me, { sort: 'asc', offset: 50, timeoutMs: 15000 }) : Promise.resolve([] as Rows);
     oldTxP.catch(() => {});
-    const [txR, tokR, intR] = await Promise.allSettled([Promise.resolve(first), tokP, intP]);
+    // Once the scan knows the address is no person, a list its card does not need is not waited for (quickShape
+    // drops it either way): the internal list, the oldest page, and the token transfers where it has transactions.
+    const orQuick = (p: Promise<Rows>): Promise<Rows> => (lim.quickNow ? Promise.race([p, lim.quickNow.then(() => [] as Rows)]) : p);
+    const [txR, tokR, intR] = await Promise.allSettled([Promise.resolve(first), first.length ? orQuick(tokP) : tokP, orQuick(intP)]);
     if (txR.status === 'rejected') throw txR.reason;
     const txs = txR.value.map((r) => normTx(r, chain, me));
     const tokens = tokR.status === 'fulfilled' ? tokR.value.map((r) => normToken(r, chain, me)) : [];
@@ -351,8 +418,8 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     if (truncInt && !oldIntPossible) coverage.limitations.push('Only the newest internal transfers can be read here: funding paid out by a contract long ago may not show.');
     if (truncTx || (truncInt && oldIntPossible)) {
       const [a, b] = await Promise.allSettled([
-        truncTx ? oldTxP : Promise.resolve([]),
-        truncInt && oldIntPossible ? accountList(http, chain, 'txlistinternal', me, { sort: 'asc', offset: 50, timeoutMs: 15000, retries: 2 }) : Promise.resolve([]),
+        truncTx ? orQuick(oldTxP) : Promise.resolve([]),
+        truncInt && oldIntPossible && !quick() ? accountList(http, chain, 'txlistinternal', me, { sort: 'asc', offset: 50, timeoutMs: 15000, retries: 2 }) : Promise.resolve([]),
       ]);
       if (a.status === 'fulfilled') oldTx = a.value.map((r) => normTx(r, chain, me));
       if (b.status === 'fulfilled') oldInt = b.value.map((r) => normInternal(r, chain, me));
@@ -391,11 +458,12 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     if (coverage.missing.length && (coverage.status === 'scanned' || coverage.status === 'no_activity')) coverage.status = 'partial';
     coverage.durationMs = Date.now() - t0;
     const self = selfTags([...txR.value, ...(tokR.status === 'fulfilled' ? tokR.value : []), ...(intR.status === 'fulfilled' ? intR.value : [])], me);
-    return {
+    const h: ChainHistory = {
       ...(self ? { self } : {}),
       chain, txs, internal, tokens, ownCount: own.size, firstOwn, firstFunding, truncated, coverage,
       ...(pre ? { nonce: pre.nonce, ...(pre.code !== undefined ? { code: pre.code } : {}) } : {}),
     };
+    return quick() ? quickShape(h) : h;
   } catch (e) {
     // Not a failure of this scan: a chain that only the relay can read, and the relay cannot serve it
     // today (no key set up, or its free daily quota spent until 00:00 UTC). A retry would not help, so
@@ -405,8 +473,8 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       coverage.status = 'skipped';
       coverage.skipReason = e.kind === 'quota' ? 'quota' : 'no_key';
       coverage.limitations.push(e.kind === 'quota'
-        ? `Not scanned: ${chain.name} is read through the Nymra relay, whose free daily quota is spent. It comes back at 00:00 UTC.`
-        : `Not scanned: ${chain.name} is read through the Nymra relay, which needs a free API key that is not set up yet.`);
+        ? `Not scanned: ${chain.name} is read through the Nymra relay, whose daily quota is spent. It comes back at 00:00 UTC.`
+        : `Not scanned: ${chain.name} is read through the Nymra relay, which has no key for it.`);
       coverage.durationMs = Date.now() - t0;
       return empty();
     }

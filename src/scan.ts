@@ -5,7 +5,7 @@ import { lookalike, makeLookup, makeNonces, plural, serviceByTags, type Detector
 import { analyzeRecipients } from './detectors/deposits.ts';
 import { DETECTOR_LIST } from './detectors/index.ts';
 import { poisoningWarning } from './detectors/poisoning.ts';
-import { fetchChain, SIDE_SHARE, type ChainHistory } from './history.ts';
+import { fetchChain, quickShape, selfTags, SIDE_SHARE, type ChainHistory, type FetchLimits } from './history.ts';
 import { serviceIdentity } from './labels.ts';
 import { linkLevel, RULES_VERSION, scoreFindings } from './score.ts';
 import { createHttp } from './sources/http.ts';
@@ -128,7 +128,7 @@ export function collectIncomplete(coverage: ChainCoverage[], identityErrors: Pro
     const pre = c.status === 'skipped' ? c.precheck : undefined;
     if (pre && (pre.sent > 0 || pre.holds)) {
       const what = pre.sent > 0 ? `sent ${plural(pre.sent, 'transaction')}` : `holds ${CHAIN_BY_ID.get(c.chainId)?.native ?? 'coins'}`;
-      const why = c.skipReason === 'quota' ? "the Nymra relay's free daily quota is spent; it comes back at 00:00 UTC" : 'the Nymra relay has no key for this chain yet';
+      const why = c.skipReason === 'quota' ? "the Nymra relay's daily quota is spent; it comes back at 00:00 UTC" : 'the Nymra relay has no key for this chain';
       out.push({ part: 'skipped', chainId: c.chainId, name: c.name, reason: `${c.name}: not read, although this wallet ${what} here (${why})` });
     }
     for (const m of c.missing ?? []) {
@@ -185,8 +185,31 @@ export async function scan(address: string, opts: ScanOptions = {}): Promise<Sca
     budget: opts.requestBudget, deadline: t0 + timeLimit, cache: opts.cache === false ? null : undefined,
   });
   const maxTx = opts.maxTxPerChain ?? 500;
+  // No person (a contract, a service, a bot): its card needs only the newest page of each chain (history.ts
+  // QUICK_ROWS). Known at once from the bundled label lists, else as soon as a chain's quick check shows code or
+  // a bot's count of transactions, the identity read says contract, or a page of rows carries the explorer's
+  // service tags. Every one of these also decides the card at the end (selfService, isContract), never more.
+  let quickOn = false;
+  let quickGo: () => void = () => {};
+  const quickNow = new Promise<void>((r) => { quickGo = r; });
+  const notPersonNow = () => {
+    if (quickOn || opts.readAll) return;
+    quickOn = true;
+    quickGo();
+  };
+  if (serviceIdentity(me)) notPersonNow();
+  const saw: FetchLimits['saw'] = (x) => {
+    if (x.pre && (x.pre.code === true || x.pre.nonce >= BOT_COUNT)) notPersonNow();
+    if (x.rows) {
+      const s = selfTags(x.rows, me);
+      if (s && serviceByTags(s.slugs, s.entity)) notPersonNow();
+    }
+  };
   // Internal transfers: one page. Deeper pages stall for 40 s and more on big addresses (measured on Ethereum, 2026-10-16).
-  const lim = { maxTx, maxToken: Math.min(250, maxTx), maxInternal: Math.min(50, maxTx), noPrecheck: opts.noPrecheck, sideBy: t0 + Math.round(timeLimit * SIDE_SHARE) };
+  const lim: FetchLimits = {
+    maxTx, maxToken: Math.min(250, maxTx), maxInternal: Math.min(50, maxTx), noPrecheck: opts.noPrecheck, sideBy: t0 + Math.round(timeLimit * SIDE_SHARE),
+    quick: () => quickOn, quickNow, saw,
+  };
 
   const wanted = opts.chainIds ?? [...defaultChainIds(), ...UNSUPPORTED.map((u) => u.id)];
   // A retired chain is never read, also when asked for: it comes back skipped, with its reason.
@@ -212,7 +235,10 @@ export async function scan(address: string, opts: ScanOptions = {}): Promise<Sca
   const coverage = () => [...histories.map((h) => h.coverage), ...skipped];
   const noProfile: Profile = { isContract: false, ensRecords: {}, ownedNames: [], tags: [] };
 
+  // A chain read in full before the scan knew the address is no person gets the same shape as the others.
+  const shapeAll = () => { if (quickOn) for (let i = 0; i < histories.length; i++) histories[i] = quickShape(histories[i]); };
   const partial = async () => {
+    shapeAll();
     const hs = ordered();
     const ctx: DetectorContext = { me, histories: hs, http, profile: withSelf(profile ?? noProfile, hs), lookup: offline, nonces: noNonces, memo: new Map() };
     const findings = await runDetectors(DETECTOR_LIST, ctx, coverage());
@@ -224,15 +250,21 @@ export async function scan(address: string, opts: ScanOptions = {}): Promise<Sca
   let queue = Promise.resolve();
   const schedule = () => { queue = queue.then(partial).catch(() => {}); };
 
-  const profileP = fetchProfile(http, me).then((p) => { profile = p.profile; schedule(); return p; }).catch(() => null);
+  const profileP = fetchProfile(http, me).then((p) => { profile = p.profile; if (p.profile.isContract) notPersonNow(); schedule(); return p; }).catch(() => null);
   await Promise.all(defs.map((c) => fetchChain(http, c, me, lim).then((h) => {
-    histories.push(h);
-    emit({ type: 'chain', coverage: h.coverage });
+    const hh = quickOn ? quickShape(h) : h;
+    histories.push(hh);
+    emit({ type: 'chain', coverage: hh.coverage });
     schedule();
   })));
   const prof = await profileP;
   await queue;
 
+  // The card decides with what was read: a contract or a service that showed itself only at the very end
+  // (its last chain's rows) still reads as one.
+  const end = withSelf(profile ?? noProfile, ordered());
+  if (!opts.readAll && (end.isContract || selfService(me, end, coverage()))) notPersonNow();
+  shapeAll();
   const gaps: Incomplete[] = [];
   const hs = ordered();
   // Every lookup and nonce check and its answer is kept with the result, so features can replay it offline (session.ts).

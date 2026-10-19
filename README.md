@@ -127,7 +127,8 @@ A typical wallet active on 3 chains costs 25 to 40 requests.
   then `partial` and lists what is missing, and its score is computed from what was read only.
 - On a long history it reads the newest 500 transactions, 250 token transfers and 50 internal
   transfers per chain, plus the oldest 50 for funding, and marks the chain `truncated`. What lies
-  in between is not read.
+  in between is not read. A contract, a service or a bot gets no score and reads only its newest
+  50 transactions per chain.
 - A link between two wallets is a likelihood with a confidence (likely, possible or weak), and a
   high confidence is still not proof. The engine never says who owns a wallet.
 - It uses public data only: what explorers and nodes show about the chain, and open label lists.
