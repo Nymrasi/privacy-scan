@@ -255,13 +255,13 @@ test("Etherscan without a key refuses part of its calls with 'Missing/Invalid AP
 // Linea read keyless took 10 to 52 s for a handful of rows (one call per 5 s, about half refused). A
 // paced keyless source asks the relay first, which serves it with its own key; straight only when it holds none.
 const LINEA = (i: number) => `https://api.etherscan.io/v2/api?chainid=59144&module=account&action=txlist&i=${i}`;
-function relayRig(relay: () => Reply, direct: Reply) {
+function relayRig(relay: () => Reply, direct: Reply | (() => Reply)) {
   const log: string[] = [];
   const slept: number[] = [];
   const fetch = (async (input: string | URL) => {
     const u = String(input);
     log.push(u);
-    const r = u.startsWith('https://site.test/p?u=') ? relay() : direct;
+    const r = u.startsWith('https://site.test/p?u=') ? relay() : typeof direct === 'function' ? direct() : direct;
     return new Response(r.body ?? '', { status: r.status ?? 200, headers: r.headers ?? {} });
   }) as typeof globalThis.fetch;
   const http = createHttp({ cache: null, fallbackProxy: 'https://site.test/p', random: () => 0.5, sleep: async (ms) => { slept.push(ms); }, fetch });
@@ -269,34 +269,28 @@ function relayRig(relay: () => Reply, direct: Reply) {
 }
 const refusedKeyless = ok({ status: '0', message: 'NOTOK', result: 'Missing/Invalid API Key' });
 
-test('a paced keyless source asks the relay first: with its key, three calls in one go and no turn waited', async () => {
-  const r = relayRig(() => ok({ status: '1', message: 'OK', result: [{ hash: '0x1' }] }), refusedKeyless);
+// Linea stays with each visitor (2026-10-19): a paced keyless source never goes through the relay, not first and not when
+// it is refused, also when the relay holds an Etherscan key. That key reads only a gap in Polygon's index (gapAlt), so
+// a launch's crowd never shares it for Linea.
+test('a paced keyless source never asks the relay, also when the relay holds its key: straight, in its own turns', async () => {
+  const r = relayRig(() => ok({ status: '1', message: 'OK', result: [{ hash: '0x1' }] }), ok({ status: '1', message: 'OK', result: [{ hash: '0x2' }] }));
   const all = await Promise.all([1, 2, 3].map((i) => r.http.getJson(LINEA(i), undefined, { minGapMs: 5200, retries: 6 })));
-  assert.ok(all.every((j) => j.result.length === 1));
-  assert.equal(r.viaRelay(), 3);
-  assert.equal(r.direct(), 0, 'the keyless source is never asked');
-  assert.deepEqual(r.slept, [], 'no paced turn');
+  assert.ok(all.every((j) => j.result[0].hash === '0x2'), 'every answer came straight from the source');
+  assert.equal(r.viaRelay(), 0, 'the relay is never asked');
+  assert.equal(r.direct(), 3);
+  assert.ok(r.slept.some((ms) => ms >= 5000), `the calls wait their turns: ${JSON.stringify(r.slept)}`);
 });
 
-test('an empty list from the relay is an answer, not a refusal', async () => {
-  const r = relayRig(() => ok({ status: '0', message: 'No transactions found', result: [] }), refusedKeyless);
-  assert.deepEqual((await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200 })).result, []);
-  assert.equal(r.direct(), 0);
-});
-
-test('a relay without the key says nokey once: that call and every later one in this page go straight, paced as before', async () => {
-  const r = relayRig(() => ({ status: 503, body: JSON.stringify({ error: 'not configured' }), headers: { 'content-type': 'application/json', 'x-nymra-relay': 'nokey' } }), ok({ status: '1', message: 'OK', result: [] }));
-  await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200 });
-  await r.http.getJson(LINEA(2), undefined, { minGapMs: 5200 });
-  assert.equal(r.viaRelay(), 1, 'the relay is asked once');
-  assert.equal(r.direct(), 2);
-  assert.ok(r.slept.some((ms) => ms >= 5000), `the second call waits its turn: ${JSON.stringify(r.slept)}`);
-});
-
-test('a relay key that does not cover the chain reads it straight, it never fails the chain', async () => {
-  const r = relayRig(() => ok({ status: '0', message: 'NOTOK', result: 'Free API access is not supported for this chain. Please upgrade your api plan' }), ok({ status: '1', message: 'OK', result: [{ hash: '0x2' }] }));
-  assert.equal((await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200 })).result[0].hash, '0x2');
-  assert.equal(r.direct(), 1);
+test('a refused paced keyless call waits out its window on its own road, never through the relay that holds the key', async () => {
+  // A window longer than the 10 s a direct road waits when it has a fallback: before 2026-10-19 the call went through the relay then.
+  let n = 0;
+  const r = relayRig(() => ok({ status: '1', message: 'OK', result: [{ hash: '0x1' }] }), () => (n++ === 0
+    ? { status: 429, body: 'Too Many Requests', headers: { 'retry-after': '30' } }
+    : ok({ status: '1', message: 'OK', result: [{ hash: '0x2' }] })));
+  assert.equal((await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200, retries: 6 })).result[0].hash, '0x2');
+  assert.equal(r.viaRelay(), 0, 'no fallback through the relay');
+  assert.equal(r.direct(), 2, 'refused once, then answered on the same road');
+  assert.ok(r.slept.some((ms) => ms >= 30_000), `the window was waited out: ${JSON.stringify(r.slept)}`);
 });
 
 // NodeReal's MegaNode at its capacity (free plan: 300 compute units a second for every user of the relay's one key

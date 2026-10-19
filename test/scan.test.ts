@@ -543,13 +543,14 @@ test('serviceByTags: only explorer tags that say "service" outright (slug sets a
   }
 });
 
-test('BNB through the relay (NodeReal) and Linea through the relay that holds its key, read, normalised, never a key in the scan', async () => {
+test('BNB through the relay (NodeReal), and Linea straight even when the relay holds an Etherscan key: read, normalised, never a key in the scan', async () => {
   const log: string[] = [];
   const r = await scan(ME, { chainIds: [56, 59144], fetch: keyedFetch(log, { relayKeys: true }), relay: 'https://relay.test/p' });
-  // Linea needs no relay (read keyless where the relay cannot serve the page, see the next tests); a relay
-  // that holds an Etherscan key serves it first, as one call per 5 s without a key took Linea 10 to 52 s.
-  assert.ok(log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'Linea through the relay with its key');
-  assert.ok(!log.some((u) => u.startsWith('https://api.etherscan.io/')), 'and not straight as well');
+  // Linea stays with each visitor (2026-10-19): read keyless and paced, never through the relay's one Etherscan key, so a
+  // launch's crowd does not share that key; it reads only a gap in Polygon's index.
+  assert.ok(log.some((u) => u.startsWith('https://api.etherscan.io/') && u.includes('chainid=59144')), 'Linea straight');
+  assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'and never through the relay');
+  assert.ok(log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('nodereal')), 'BNB through the relay');
   const bnb = r.coverage.find((x) => x.chainId === 56)!;
   const linea = r.coverage.find((x) => x.chainId === 59144)!;
   assert.equal(bnb.status, 'scanned');

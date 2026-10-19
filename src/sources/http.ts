@@ -171,11 +171,8 @@ const RESERVE = 4;
 /** Relays that refused this page as a caller, by host, until when (ms since epoch). */
 const RELAY_DOWN = new Map<string, number>();
 const RELAY_DOWN_MS = 10 * 60_000;
-/** A relay that said it holds no key for a source host, as "relay-host source-host", until when (ms since epoch). */
-const NO_KEY = new Map<string, number>();
-export function resetHostState() { HOSTS.clear(); RELAY_DOWN.clear(); NO_KEY.clear(); }
+export function resetHostState() { HOSTS.clear(); RELAY_DOWN.clear(); }
 const relayDown = (relay: string) => (RELAY_DOWN.get(new URL(relay).host) ?? 0) > Date.now();
-const noKeyFor = (relay: string, url: string) => (NO_KEY.get(`${new URL(relay).host} ${new URL(url).host}`) ?? 0) > Date.now();
 
 /** With a fallback proxy, a direct road waits at most this long for a rate-limit window. */
 const FALLBACK_AFTER_MS = 10_000;
@@ -402,29 +399,16 @@ export function createHttp(o: HttpOptions = {}): Http {
   async function fetchText(url: string, init: RequestInit | undefined, call: CallOptions): Promise<string> {
     const tries = call.retries ?? retries, tmo = call.timeoutMs ?? timeoutMs;
     const tt = call.timeoutRetries ?? 1, gap = call.minGapMs ?? 0;
-    // A paced keyless source (Etherscan without a key: one call per 5 s, and about half of them refused) that the
-    // relay can serve with its own key: the relay first. It answers `nokey` at once when it holds none, and this
-    // page then goes straight to the source for ten minutes, as before. Any other trouble on the relay falls back
-    // to the paced road too. Linea took 10 to 52 s this way for a handful of rows (30 known wallets).
-    const keyRelay = o.relay ?? o.fallbackProxy;
-    if (gap > 0 && keyRelay && !o.proxy && !relayDown(keyRelay) && !noKeyFor(keyRelay, url)) {
-      try {
-        const text = await road(url, init, keyRelay, 0, tmo, Math.min(maxWaitMs, FALLBACK_AFTER_MS), 0);
-        // Its key may not cover this chain ("not supported", "upgrade"): an Etherscan refusal of status 0 that is
-        // not an empty list is no answer, so the paced road reads it as before.
-        if (!(text.length < 600 && /"status"\s*:\s*"0"/.test(text) && !/no (transactions|records|token transfers|internal transactions) found/i.test(text))) return text;
-      } catch (e) {
-        if (e instanceof HttpError && (e.kind === 'aborted' || e.kind === 'budget')) throw e;
-        if (e instanceof HttpError && e.kind === 'needs_key') NO_KEY.set(`${new URL(keyRelay).host} ${new URL(url).host}`, Date.now() + RELAY_DOWN_MS);
-      }
-    }
     if (call.via === 'relay') {
       const relay = o.relay ?? o.fallbackProxy ?? o.proxy;
       if (!relay) throw new HttpError(0, 'no relay configured for a keyed source', 'needs_key');
       if (relayDown(relay)) throw new HttpError(0, 'no relay for this page', 'needs_key');
       return road(url, init, relay, tries, tmo, maxWaitMs, tt, 0, true);
     }
-    if (o.proxy || !o.fallbackProxy) return road(url, init, o.proxy, tries, tmo, maxWaitMs, tt, gap);
+    // A paced keyless source (Etherscan without a key, one call per 5 s: Linea) stays with each visitor. It never goes
+    // through the relay, not first and not when it is refused, so a launch's crowd never shares the relay's one
+    // Etherscan key (5 calls a second for all of them): that key reads only a gap in Polygon's index (`via: 'relay'`).
+    if (o.proxy || !o.fallbackProxy || gap > 0) return road(url, init, o.proxy, tries, tmo, maxWaitMs, tt, gap);
     // The direct road on its own, waiting out a window up to the longest wait: no relay can help.
     const direct = () => road(url, init, undefined, tries, tmo, maxWaitMs, tt, gap);
     if (relayDown(o.fallbackProxy)) return direct();
