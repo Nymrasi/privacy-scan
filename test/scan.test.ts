@@ -5,6 +5,7 @@ import { scan, isAddress } from '../src/index.ts';
 import { clearSessionCache, resetHostState } from '../src/sources/http.ts';
 import { decodeString, encodeText } from '../src/sources/identity.ts';
 import type { ScanProgress, ScanResult } from '../src/types.ts';
+import { CHAIN_BY_ID, esFree, type ChainDef } from '../src/chains.ts';
 
 const ME = '0x2222222222222222222222222222222222222222';
 const FRIEND = '0x3333333333333333333333333333333333333333';
@@ -392,34 +393,38 @@ test('history: Blockscout cannot sort internal transfers oldest first, so a full
   assert.ok(h.coverage.limitations.some((l) => /newest internal transfers/.test(l)));
 });
 
-// ---------- BNB Smart Chain through the relay (a keyed source), Linea keyless ----------
+// ---------- BNB Smart Chain through the relay (a keyed source), a paced keyless chain ----------
+
+/** A chain read from Etherscan V2 without a key, one request per 5 s: in this file only, no chain in the register reads it so now. */
+const PACED: ChainDef = { id: 990001, name: 'Paced test chain', native: 'ETH', source: esFree(990001), rpc: 'https://paced-rpc.test/', explorer: 'https://paced.test', defaultOn: false };
+CHAIN_BY_ID.set(PACED.id, PACED);
 
 /** When each keyless Etherscan V2 request went out (ms since epoch). */
 const etherscanAt: number[] = [];
-/** Etherscan V2 rows for Linea: a friend sent 0.2 ETH, the wallet sent 0.1 back. */
-function lineaAnswer(url: string): Response {
+/** Etherscan V2 rows for the paced chain: a friend sent 0.2 ETH, the wallet sent 0.1 back. */
+function pacedAnswer(url: string): Response {
   const q = new URL(url).searchParams;
-  assert.equal(q.get('chainid'), '59144');
+  assert.equal(q.get('chainid'), String(PACED.id));
   assert.equal(q.get('apikey'), null, 'the scan never sends a key');
   if (q.get('action') === 'txlist') return new Response(JSON.stringify({ status: '1', message: 'OK-Missing/Invalid API Key, rate limit of 1/5sec applied', result: [raw(FRIEND, ME, 0.2, 1_750_000_000), raw(ME, FRIEND, 0.1, 1_750_000_300)].reverse() }));
   return new Response(JSON.stringify({ status: '0', message: 'No transactions found', result: [] }));
 }
 
 /** `pre`: the quick check's [nonce, balance] per chain; default a wallet that sent 1 transaction and holds nothing. */
-function keyedFetch(log: string[], o: { relayKeys: boolean; quota?: boolean; pre?: { bsc?: [string, string]; linea?: [string, string] } }) {
+function keyedFetch(log: string[], o: { relayKeys: boolean; quota?: boolean; pre?: { bsc?: [string, string]; paced?: [string, string] } }) {
   const base = fakeFetch(log);
   return (async (input: string | URL, init?: RequestInit) => {
     const url = String(input);
-    if (init?.method === 'POST' && (url.includes('bsc-rpc') || url.includes('linea-rpc'))) {
+    if (init?.method === 'POST' && (url.includes('bsc-rpc') || url.includes('paced-rpc'))) {
       log.push(url);
-      const [nonce, balance] = (url.includes('bsc-rpc') ? o.pre?.bsc : o.pre?.linea) ?? ['0x1', '0x0'];
+      const [nonce, balance] = (url.includes('bsc-rpc') ? o.pre?.bsc : o.pre?.paced) ?? ['0x1', '0x0'];
       const body = JSON.parse(String(init.body));
       return new Response(JSON.stringify(body.map((c: any) => ({ id: c.id, result: c.method === 'eth_getTransactionCount' ? nonce : c.method === 'eth_getCode' ? '0x' : balance }))));
     }
     if (url.startsWith('https://api.etherscan.io/v2/api?')) {
       log.push(url);
       etherscanAt.push(Date.now());
-      return lineaAnswer(url);
+      return pacedAnswer(url);
     }
     if (url.startsWith('https://site.test/p?u=')) {
       log.push(url);
@@ -438,7 +443,7 @@ function keyedFetch(log: string[], o: { relayKeys: boolean; quota?: boolean; pre
           : [{ category: '20', blockNum: '0x2c', from: ME, to: '0x' + '55'.repeat(20), value: '0xde0b6b3a7640000', asset: 'USDT', hash: '0x' + 'b3'.repeat(32), contractAddress: '0x55d398326f99059ff775485246999027b3197955', decimal: '0x12', blockTimeStamp: '0x684c9d10', receiptsStatus: 1 }];
         return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { pageKey: '', transfers } }));
       }
-      if (inner.startsWith('https://api.etherscan.io/v2/api')) return lineaAnswer(inner);
+      if (inner.startsWith('https://api.etherscan.io/v2/api')) return pacedAnswer(inner);
     }
     return base(input, init);
   }) as typeof fetch;
@@ -488,15 +493,15 @@ test('a keyless chain that only fell back to the relay and met its spent quota s
   assert.deepEqual(r.incomplete.find((g) => g.chainId === 8453), { part: 'chain', chainId: 8453, name: 'Base', reason: "Base: the relay's daily quota is spent" });
 });
 
-test('BNB without a relay key where the wallet only holds BNB: a gap that says so; an empty Linea: no gap and no relay call', async () => {
+test('BNB without a relay key where the wallet only holds BNB: a gap that says so; an empty paced keyless chain: no gap and no relay call', async () => {
   const log: string[] = [];
-  const r = await scan(ME, { chainIds: [56, 59144], fetch: keyedFetch(log, { relayKeys: false, pre: { bsc: ['0x0', '0x2386f26fc10000'], linea: ['0x0', '0x0'] } }), relay: 'https://relay.test/p' });
-  const bnb = r.coverage.find((x) => x.chainId === 56)!, linea = r.coverage.find((x) => x.chainId === 59144)!;
+  const r = await scan(ME, { chainIds: [56, PACED.id], fetch: keyedFetch(log, { relayKeys: false, pre: { bsc: ['0x0', '0x2386f26fc10000'], paced: ['0x0', '0x0'] } }), relay: 'https://relay.test/p' });
+  const bnb = r.coverage.find((x) => x.chainId === 56)!, paced = r.coverage.find((x) => x.chainId === PACED.id)!;
   assert.equal(bnb.status, 'skipped');
   assert.deepEqual(bnb.precheck, { sent: 0, holds: true });
-  assert.equal(linea.status, 'no_activity');
-  assert.deepEqual(linea.precheck, { sent: 0, holds: false });
-  assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'an empty chain costs no relay call');
+  assert.equal(paced.status, 'no_activity');
+  assert.deepEqual(paced.precheck, { sent: 0, holds: false });
+  assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes(`chainid=${PACED.id}`)), 'an empty chain costs no relay call');
   assert.deepEqual(r.incomplete.map((g) => [g.part, g.chainId, g.reason]), [['skipped', 56, 'BNB Smart Chain: not read, although this wallet holds BNB here (the Nymra relay has no key for this chain)']]);
   assert.equal(r.status, 'partial');
 });
@@ -573,23 +578,23 @@ test('serviceByTags: only explorer tags that say "service" outright (slug sets a
   }
 });
 
-test('BNB through the relay (NodeReal), and Linea straight even when the relay holds an Etherscan key: read, normalised, never a key in the scan', async () => {
+test('BNB through the relay (NodeReal), and a paced keyless chain straight even when the relay holds an Etherscan key: read, normalised, never a key in the scan', async () => {
   const log: string[] = [];
-  const r = await scan(ME, { chainIds: [56, 59144], fetch: keyedFetch(log, { relayKeys: true }), relay: 'https://relay.test/p' });
-  // Linea stays with each visitor (2026-10-19): read keyless and paced, never through the relay's one Etherscan key, so a
-  // launch's crowd does not share that key; it reads only a gap in Polygon's index.
-  assert.ok(log.some((u) => u.startsWith('https://api.etherscan.io/') && u.includes('chainid=59144')), 'Linea straight');
-  assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('chainid=59144')), 'and never through the relay');
+  const r = await scan(ME, { chainIds: [56, PACED.id], fetch: keyedFetch(log, { relayKeys: true }), relay: 'https://relay.test/p' });
+  // A paced keyless source stays with each visitor (2026-10-19): read keyless and paced, never through the relay's one
+  // Etherscan key, so a launch's crowd does not share that key; it reads only a gap in Polygon's index.
+  assert.ok(log.some((u) => u.startsWith('https://api.etherscan.io/') && u.includes(`chainid=${PACED.id}`)), 'the paced chain straight');
+  assert.ok(!log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes(`chainid=${PACED.id}`)), 'and never through the relay');
   assert.ok(log.some((u) => u.startsWith('https://relay.test/p') && decodeURIComponent(u).includes('nodereal')), 'BNB through the relay');
   const bnb = r.coverage.find((x) => x.chainId === 56)!;
-  const linea = r.coverage.find((x) => x.chainId === 59144)!;
+  const paced = r.coverage.find((x) => x.chainId === PACED.id)!;
   assert.equal(bnb.status, 'scanned');
   assert.equal(bnb.source, 'nodereal');
   assert.equal(bnb.txCount, 2);
   assert.equal(bnb.tokenTransferCount, 1);
   assert.equal(bnb.internalTransfers, 'none');
-  assert.equal(linea.status, 'scanned');
-  assert.equal(linea.source, 'etherscan');
+  assert.equal(paced.status, 'scanned');
+  assert.equal(paced.source, 'etherscan');
   assert.ok(log.every((u) => !/apikey=|nodereal\.io\/v1\/[a-z0-9]/i.test(u)), 'no key anywhere in what the scan sends');
   assert.ok(!r.findings.some((f) => f.id === 'linked_wallets.back_and_forth' && f.related?.some((x) => x.address === '0x' + '55'.repeat(20))), 'a token recipient seen only through NodeReal is not a person');
 });
@@ -607,14 +612,14 @@ test('on a site whose relay refuses this page (nymra.pages.dev answers 403), BNB
   assert.ok(log.filter((u) => u.startsWith('https://site.test/p')).length <= 2, 'the refusing relay is asked by the two lists that start together, then never again');
 });
 
-test('Linea is read without any key or relay: Etherscan V2 straight from the page, its requests at least 5 s apart', async () => {
+test('a paced keyless chain is read without any key or relay: Etherscan V2 straight from the page, its requests at least 5 s apart', async () => {
   const log: string[] = [];
   etherscanAt.length = 0;
-  const r = await scan(ME, { chainIds: [59144], fetch: keyedFetch(log, { relayKeys: false }), cache: false });
-  const linea = r.coverage[0];
-  assert.equal(linea.status, 'scanned');
-  assert.equal(linea.source, 'etherscan');
-  assert.equal(linea.txCount, 2);
+  const r = await scan(ME, { chainIds: [PACED.id], fetch: keyedFetch(log, { relayKeys: false }), cache: false });
+  const paced = r.coverage[0];
+  assert.equal(paced.status, 'scanned');
+  assert.equal(paced.source, 'etherscan');
+  assert.equal(paced.txCount, 2);
   assert.deepEqual(r.incomplete, []);
   assert.equal(r.status, 'complete');
   assert.ok(etherscanAt.length >= 3, `${etherscanAt.length} Etherscan requests`);

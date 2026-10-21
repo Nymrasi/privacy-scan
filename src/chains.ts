@@ -3,8 +3,8 @@
 //   rs(id)   Routescan, keyless Etherscan-compatible API. CORS `*`.
 //   es(id)   Etherscan V2 with a free key, through the Nymra relay (the key lives there).
 //   esFree(id) Etherscan V2 without a key, straight from the browser or the bot (CORS `*`), one request per
-//            5 s per IP. Free for Linea only (measured 2026-10-17: Base, BNB, OP and Robinhood Chain answer "not
-//            supported for free", Arbitrum and Polygon want a key).
+//            5 s per IP (measured 2026-10-17: Base, BNB, OP and Robinhood Chain answer "not supported for free",
+//            Arbitrum and Polygon want a key). No chain in the register reads it this way now.
 //   nr()     NodeReal MegaNode with a free key, through the relay. BNB Smart Chain.
 //   al(net)  Alchemy's Transfers API with a free key, through the relay: the keyed second source of Base
 //            and Polygon PoS on a server (`keyedAlt`).
@@ -69,7 +69,7 @@ const rs = (id: ChainId): SourceDef => ({ kind: 'routescan', api: `https://api.r
 export const es = (id: ChainId): SourceDef => ({ kind: 'etherscan', api: 'https://api.etherscan.io/v2/api', chainid: id, keyed: true });
 /** Etherscan's keyless limit is one request per 5 s; a little over that keeps clear of it. */
 export const ETHERSCAN_FREE_GAP_MS = 5200;
-const esFree = (id: ChainId): SourceDef => ({ kind: 'etherscan', api: 'https://api.etherscan.io/v2/api', chainid: id, minGapMs: ETHERSCAN_FREE_GAP_MS });
+export const esFree = (id: ChainId): SourceDef => ({ kind: 'etherscan', api: 'https://api.etherscan.io/v2/api', chainid: id, minGapMs: ETHERSCAN_FREE_GAP_MS });
 const nr = (): SourceDef => ({ kind: 'nodereal', api: 'https://bsc-mainnet.nodereal.io/v1/', keyed: true });
 /** The relay puts the key after `/v2/` (proxy/proxy.ts); the scan never sends one. */
 const al = (net: string): SourceDef => ({ kind: 'alchemy', api: `https://${net}.g.alchemy.com/v2/`, keyed: true });
@@ -96,7 +96,6 @@ export const CHAINS: ChainDef[] = [
   { id: 57073,    name: 'Ink',             native: 'ETH',  source: bs('https://explorer.inkonchain.com'),           rpc: 'https://rpc-gel.inkonchain.com', explorer: 'https://explorer.inkonchain.com',          defaultOn: true },
   { id: 1868,     name: 'Soneium',         native: 'ETH',  source: bs('https://soneium.blockscout.com'),            rpc: 'https://soneium-rpc.publicnode.com', explorer: 'https://soneium.blockscout.com',           defaultOn: true },
   { id: 56,       name: 'BNB Smart Chain', native: 'BNB',  source: nr(),                                           rpc: 'https://bsc-rpc.publicnode.com', explorer: 'https://bscscan.com',                      defaultOn: true, traces: false, limits: [BNB_LIMIT] },
-  { id: 59144,    name: 'Linea',           native: 'ETH',  source: esFree(59144),                                    rpc: 'https://linea-rpc.publicnode.com', explorer: 'https://lineascan.build',                  defaultOn: true },
   { id: 42220,    name: 'Celo',            native: 'CELO', source: bs('https://celo.blockscout.com'),               rpc: 'https://celo-rpc.publicnode.com', explorer: 'https://celo.blockscout.com',              defaultOn: true },
   { id: 480,      name: 'World Chain',     native: 'ETH',  source: bs('https://worldchain-mainnet.explorer.alchemy.com'), rpc: 'https://worldchain-mainnet.g.alchemy.com/public', explorer: 'https://worldchain-mainnet.explorer.alchemy.com', defaultOn: false },
   { id: 34443,    name: 'Mode',            native: 'ETH',  source: bs('https://explorer.mode.network'),             rpc: 'https://mainnet.mode.network', explorer: 'https://explorer.mode.network',            defaultOn: false },
@@ -128,7 +127,7 @@ export const TESTNETS: ChainDef[] = [
   { id: 91342,    name: 'GIWA Sepolia',    native: 'ETH',  source: bs('https://sepolia-explorer.giwa.io'),          rpc: 'https://sepolia-rpc.giwa.io', explorer: 'https://sepolia-explorer.giwa.io',          defaultOn: false, limits: [GIWA_TESTNET_LIMIT] },
 ];
 
-/** Chains with no free source at all. Listed in coverage as `skipped`, with the reason. Empty since BNB and Linea came in through the relay. */
+/** Chains with no free source at all. Listed in coverage as `skipped`, with the reason. Empty since BNB came in through the relay. */
 export const UNSUPPORTED: { id: ChainId; name: string; reason: string }[] = [];
 
 export const CHAIN_BY_ID: Map<ChainId, ChainDef> = new Map([...CHAINS, ...TESTNETS].map((c) => [c.id, c]));

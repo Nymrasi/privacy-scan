@@ -10,7 +10,7 @@
 // - A relay that refuses this page as a caller (it answers on its own domain only, or there is no relay at
 //   this address) is no road: a keyed source is skipped as if the relay had no key, and a refused direct
 //   read waits out its window after all instead of failing on the relay (2026-10-17: on nymra.pages.dev
-//   every scan of a wallet active on BNB Smart Chain or Linea came back without a score).
+//   every scan of a wallet active on BNB Smart Chain came back without a score).
 // - A source with a fixed rate (Etherscan V2 without a key: one request per 5 s) gets its turns spaced.
 // - Every scan has a request budget. Answers are cached in memory for the session (10 minutes), so
 //   scanning the same wallet again in the same page costs no requests and reads the same data.
@@ -381,8 +381,8 @@ export function createHttp(o: HttpOptions = {}): Http {
       }
       if (!res.ok) throw new HttpError(res.status, `HTTP ${res.status} from ${host}`, 'http');
       // Etherscan-style APIs (Routescan) answer a rate limit with 200 and an error body. Etherscan without
-      // a key also refuses part of its calls with "Missing/Invalid API Key" (Linea, measured 2026-10-17: about
-      // half, at 6 s and at 11 s apart alike), so on a paced keyless source that is a refusal of the
+      // a key also refuses part of its calls with "Missing/Invalid API Key" (measured 2026-10-17: about half,
+      // at 6 s and at 11 s apart alike), so on a paced keyless source that is a refusal of the
       // moment: the next turn usually reads.
       const keylessNo = gapMs > 0 && text.length < 300 && /"status"\s*:\s*"0"/.test(text) && /Missing\/Invalid API Key/i.test(text);
       if (text.length < 600 && /"status"\s*:\s*"0"/.test(text) && (/rate limit/i.test(text) || keylessNo)) {
@@ -416,7 +416,7 @@ export function createHttp(o: HttpOptions = {}): Http {
       if (relayDown(relay)) throw new HttpError(0, 'no relay for this page', 'needs_key');
       return road(url, init, relay, tries, tmo, maxWaitMs, tt, 0, true, call.signal);
     }
-    // A paced keyless source (Etherscan without a key, one call per 5 s: Linea) stays with each visitor. It never goes
+    // A paced keyless source (Etherscan without a key, one call per 5 s) stays with each visitor. It never goes
     // through the relay, not first and not when it is refused, so a launch's crowd never shares the relay's one
     // Etherscan key (5 calls a second for all of them): that key reads only a gap in Polygon's index (`via: 'relay'`).
     if (o.proxy || !o.fallbackProxy || gap > 0) return road(url, init, o.proxy, tries, tmo, maxWaitMs, tt, gap, false, call.signal);

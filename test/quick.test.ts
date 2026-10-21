@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { scan } from '../src/index.ts';
 import { ALT_INTERNAL_AFTER_MS, fetchChain, QUICK_LIMIT, QUICK_ROWS } from '../src/history.ts';
 import { clearSessionCache, createHttp, resetHostState } from '../src/sources/http.ts';
-import { CHAIN_BY_ID } from '../src/chains.ts';
+import { CHAIN_BY_ID, esFree, type ChainDef } from '../src/chains.ts';
 import type { ScanResult } from '../src/types.ts';
 
 beforeEach(() => { clearSessionCache(); resetHostState(); });
@@ -19,6 +19,9 @@ const TAGGED = '0x6666666666666666666666666666666666666666';
 /** Binance 14, in the bundled exchange list. */
 const BINANCE14 = '0x28c6c06298d514db089934071355e5743bf21d60';
 const OTHER = '0x3333333333333333333333333333333333333333';
+/** A chain read from Etherscan V2 without a key, one request per 5 s: in this file only, no chain in the register reads it so now. */
+const PACED: ChainDef = { id: 990001, name: 'Paced test chain', native: 'ETH', source: esFree(990001), rpc: 'https://paced-rpc.test/', explorer: 'https://paced.test', defaultOn: false };
+CHAIN_BY_ID.set(PACED.id, PACED);
 
 interface World {
   me: string;
@@ -42,7 +45,7 @@ function world(w: World, log: string[]) {
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
     if (init?.method === 'POST') {
       const body = JSON.parse(String(init.body));
-      const chain = url.includes('base-rpc') ? 8453 : url.includes('ethereum-rpc') ? 1 : url.includes('linea-rpc') ? 59144 : 0;
+      const chain = url.includes('base-rpc') ? 8453 : url.includes('ethereum-rpc') ? 1 : url.includes('paced-rpc') ? PACED.id : 0;
       const active = chain !== 0;
       if (w.rpcMs?.[chain]) await new Promise((r) => setTimeout(r, w.rpcMs![chain]));
       return json(body.map((c: any) => ({
@@ -54,9 +57,9 @@ function world(w: World, log: string[]) {
     if (/\/api\/v2\/addresses\/0x[0-9a-f]{40}$/.test(url)) return json({ is_contract: false, public_tags: [], metadata: null });
     if (url.includes('bens.services.blockscout.com')) return json(url.includes('addresses:lookup') ? { items: [] } : {});
     if (url.includes('api.routescan.io')) return json({ status: '0', message: 'No transactions found', result: [] });
-    // Linea: Etherscan V2 without a key, three rows of the address's own.
+    // The paced chain: Etherscan V2 without a key, three rows of the address's own.
     if (url.startsWith('https://api.etherscan.io/v2/api?')) {
-      return json({ status: '1', message: 'OK', result: [0, 1, 2].map((k) => ({ blockNumber: String(5000 - k), timeStamp: String(1_750_000_000 - k * 3600), hash: '0x' + (59144000 + k).toString(16).padStart(64, '0'), from: w.me, to: OTHER, value: '1000000000000000', gas: '21000', gasPrice: '1000000000', input: '0x', isError: '0', contractAddress: '0x' + '77'.repeat(20), tokenDecimal: '6', tokenSymbol: 'USDC' })) });
+      return json({ status: '1', message: 'OK', result: [0, 1, 2].map((k) => ({ blockNumber: String(5000 - k), timeStamp: String(1_750_000_000 - k * 3600), hash: '0x' + (990001000 + k).toString(16).padStart(64, '0'), from: w.me, to: OTHER, value: '1000000000000000', gas: '21000', gasPrice: '1000000000', input: '0x', isError: '0', contractAddress: '0x' + '77'.repeat(20), tokenDecimal: '6', tokenSymbol: 'USDC' })) });
     }
     const m = url.match(/^https:\/\/(eth|base)\.blockscout\.com\/api\/v2\/addresses\/0x[0-9a-f]{40}\/([a-z-]+)/);
     if (!m) throw new Error('unexpected url in test: ' + url);
@@ -177,9 +180,9 @@ test('a stalled internal list on Ethereum asks its second source after 3 s, not 
   assert.equal(h.coverage.internalTransfers, 'full');
 });
 
-test('an exchange active on Linea reads its newest transactions there in one turn, and no token list takes a turn from them', { timeout: 30_000 }, async () => {
+test('an exchange active on a paced keyless chain reads its newest transactions there in one turn, and no token list takes a turn from them', { timeout: 30_000 }, async () => {
   const log: string[] = [];
-  const r = await scan(BINANCE14, { chainIds: [59144], fetch: world({ me: BINANCE14 }, log), cache: false });
+  const r = await scan(BINANCE14, { chainIds: [PACED.id], fetch: world({ me: BINANCE14 }, log), cache: false });
   assert.equal(r.identity.service?.kind, 'exchange');
   const calls = log.filter((u) => u.startsWith('https://api.etherscan.io/'));
   assert.equal(calls.length, 1, calls.join('\n'));

@@ -533,25 +533,6 @@
       "durationMs": 140
     },
     {
-      "chainId": 59144,
-      "name": "Linea",
-      "status": "no_activity",
-      "source": "etherscan",
-      "txCount": 0,
-      "tokenTransferCount": 0,
-      "internalTransfers": "full",
-      "truncated": false,
-      "limitations": [
-        "Quick check only: no transaction sent and no ETH held. Tokens that were only received are not listed."
-      ],
-      "missing": [],
-      "precheck": {
-        "sent": 0,
-        "holds": false
-      },
-      "durationMs": 140
-    },
-    {
       "chainId": 534352,
       "name": "Scroll",
       "status": "no_activity",

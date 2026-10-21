@@ -2,7 +2,7 @@
 //   Blockscout: REST `/api/v2/addresses/<a>/...` (keyless 180 requests a minute per instance).
 //     Its Etherscan-compatible `/api` allows only ~10 an hour per IP, so it is not used.
 //   Routescan: Etherscan-compatible `/api`, keyless.
-//   Etherscan V2 (Linea): the same format with `chainid`, keyless at one request per 5 s.
+//   Etherscan V2: the same format with `chainid`; keyless at one request per 5 s, or with the relay's key.
 //   NodeReal (BNB Smart Chain): JSON-RPC `nr_getTransactionByAddress`, through the relay.
 //   Alchemy (Base and Polygon PoS on a server): JSON-RPC `alchemy_getAssetTransfers`, through the relay.
 // All come back as Etherscan-shaped rows, so history.ts normalizes one format.

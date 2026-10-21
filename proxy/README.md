@@ -9,8 +9,7 @@ requests that cannot go that way:
    page. After a 429 the scan waits up to 10 s; after a bot check, or a longer wait, it asks the relay,
    which reads Blockscout's PRO API with its own key.
 2. **The keyed chain.** BNB Smart Chain (NodeReal) has no keyless source. The relay holds its
-   key, the browser never does. Linea needs none: Etherscan V2 answers it without a key, one request
-   per 5 s. On a server, Base and Polygon PoS are read through Alchemy (`ALCHEMY_API_KEY`), because
+   key, the browser never does. On a server, Base and Polygon PoS are read through Alchemy (`ALCHEMY_API_KEY`), because
    the relay's PRO plan no longer serves them (402 since 1 October 2026); only a server's own relay holds
    that key (the ASI agent's), and only it passes `keyedAlts: ['alchemy']`.
 3. **A server.** All four bot-checked explorers refuse a server. A server-side caller reads through the
@@ -41,9 +40,9 @@ The website serves this handler as a Cloudflare Pages Function at `https://nymra
 
 - Blockscout PRO: [dev.blockscout.com](https://dev.blockscout.com), sign in, **API keys**, **Create**.
   Limit: 100,000 credits a day, 5 requests a second.
-- Etherscan: not needed. The scan reads Linea without a key (one request per 5 s); a key here only
-  serves a Linea read that was refused, faster ([etherscan.io/register](https://etherscan.io/register),
-  **API Dashboard**, **Add**; 3 calls a second).
+- Etherscan: optional. With a key here, a gap in Polygon PoS's own index is read once more from
+  Etherscan V2 ([etherscan.io/register](https://etherscan.io/register), **API Dashboard**, **Add**;
+  3 calls a second).
 - NodeReal (for BNB Smart Chain): [nodereal.io](https://nodereal.io), **Sign up**, **MegaNode**,
   **Create API key**. Limit: 10 million compute units a month; one history call costs 250.
 

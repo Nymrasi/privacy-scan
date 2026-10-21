@@ -275,8 +275,8 @@ range of plus or minus one hour.
   RPC nodes directly. Like any website you visit, they see your IP address together with the
   address you scan.
 - Nymra's relay at `https://nymra.si/p` sees the address only when an explorer refuses your browser
-  (a rate limit or a bot check): that one request is retried through the relay. BNB Smart Chain and
-  Linea always go through it, because it holds their API keys. The relay keeps no log (no URL,
+  (a rate limit or a bot check): that one request is retried through the relay. BNB Smart Chain
+  always goes through it, because it holds its API key. The relay keeps no log (no URL,
   no address, no IP) and forwards only to the hosts in the chain register.
 - Per chain it reads the newest 500 transactions, the newest 250 token transfers and 50 internal
   transfers, plus the oldest 50 for funding. A longer history is marked `truncated`. These are
@@ -293,9 +293,8 @@ range of plus or minus one hour.
   airdrop spam and address poisoning do not create links.
 - **Robinhood Chain** has no traces and no archive state: internal ETH transfers, and funding paid
   out by a contract, are invisible there.
-- **BNB Smart Chain and Linea** have no keyless explorer API: they are read through the relay,
-  which holds a key for each. Without the key they show as `skipped`, with the reason, never as
-  a failed read.
+- **BNB Smart Chain** has no keyless explorer API: it is read through the relay, which holds a
+  key for it. Without the key it shows as `skipped`, with the reason, never as a failed read.
 - Every result lists, per chain, what was read and what was not (`coverage`).
 
 ## Changes

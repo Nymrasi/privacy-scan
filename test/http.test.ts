@@ -286,7 +286,7 @@ test("Etherscan's keyless rate-limit answer waits a whole turn of the source, no
   assert.ok(Math.max(...slept) >= 5000, `waited ${JSON.stringify(slept)}`);
 });
 
-test("Etherscan without a key refuses part of its calls with 'Missing/Invalid API Key' (Linea, measured 2026-10-17: about half): on a paced keyless source that is a refusal of the moment, tried again a turn later", async () => {
+test("Etherscan without a key refuses part of its calls with 'Missing/Invalid API Key' (measured 2026-10-17: about half): on a paced keyless source that is a refusal of the moment, tried again a turn later", async () => {
   const no = ok({ status: '0', message: 'NOTOK', result: 'Missing/Invalid API Key' });
   const yes = ok({ status: '1', message: 'OK-Missing/Invalid API Key, rate limit of 1/5sec applied', result: [{ hash: '0x1' }] });
   const { http, log, slept } = rig({ replies: [no, no, no, yes] });
@@ -299,9 +299,8 @@ test("Etherscan without a key refuses part of its calls with 'Missing/Invalid AP
   assert.equal(keyed.log.length, 1);
 });
 
-// Linea read keyless took 10 to 52 s for a handful of rows (one call per 5 s, about half refused). A
-// paced keyless source asks the relay first, which serves it with its own key; straight only when it holds none.
-const LINEA = (i: number) => `https://api.etherscan.io/v2/api?chainid=59144&module=account&action=txlist&i=${i}`;
+// A chain read keyless took 10 to 52 s for a handful of rows (one call per 5 s, about half refused).
+const PACED = (i: number) => `https://api.etherscan.io/v2/api?chainid=990001&module=account&action=txlist&i=${i}`;
 function relayRig(relay: () => Reply, direct: Reply | (() => Reply)) {
   const log: string[] = [];
   const slept: number[] = [];
@@ -316,12 +315,12 @@ function relayRig(relay: () => Reply, direct: Reply | (() => Reply)) {
 }
 const refusedKeyless = ok({ status: '0', message: 'NOTOK', result: 'Missing/Invalid API Key' });
 
-// Linea stays with each visitor (2026-10-19): a paced keyless source never goes through the relay, not first and not when
-// it is refused, also when the relay holds an Etherscan key. That key reads only a gap in Polygon's index (gapAlt), so
-// a launch's crowd never shares it for Linea.
+// A paced keyless source stays with each visitor (2026-10-19): it never goes through the relay, not first and not when it
+// is refused, also when the relay holds an Etherscan key. That key reads only a gap in Polygon's index (gapAlt), so
+// a launch's crowd never shares it.
 test('a paced keyless source never asks the relay, also when the relay holds its key: straight, in its own turns', async () => {
   const r = relayRig(() => ok({ status: '1', message: 'OK', result: [{ hash: '0x1' }] }), ok({ status: '1', message: 'OK', result: [{ hash: '0x2' }] }));
-  const all = await Promise.all([1, 2, 3].map((i) => r.http.getJson(LINEA(i), undefined, { minGapMs: 5200, retries: 6 })));
+  const all = await Promise.all([1, 2, 3].map((i) => r.http.getJson(PACED(i), undefined, { minGapMs: 5200, retries: 6 })));
   assert.ok(all.every((j) => j.result[0].hash === '0x2'), 'every answer came straight from the source');
   assert.equal(r.viaRelay(), 0, 'the relay is never asked');
   assert.equal(r.direct(), 3);
@@ -334,7 +333,7 @@ test('a refused paced keyless call waits out its window on its own road, never t
   const r = relayRig(() => ok({ status: '1', message: 'OK', result: [{ hash: '0x1' }] }), () => (n++ === 0
     ? { status: 429, body: 'Too Many Requests', headers: { 'retry-after': '30' } }
     : ok({ status: '1', message: 'OK', result: [{ hash: '0x2' }] })));
-  assert.equal((await r.http.getJson(LINEA(1), undefined, { minGapMs: 5200, retries: 6 })).result[0].hash, '0x2');
+  assert.equal((await r.http.getJson(PACED(1), undefined, { minGapMs: 5200, retries: 6 })).result[0].hash, '0x2');
   assert.equal(r.viaRelay(), 0, 'no fallback through the relay');
   assert.equal(r.direct(), 2, 'refused once, then answered on the same road');
   assert.ok(r.slept.some((ms) => ms >= 30_000), `the window was waited out: ${JSON.stringify(r.slept)}`);

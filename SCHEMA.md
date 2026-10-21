@@ -244,7 +244,7 @@ Cloudflare-walled chains (see below).
 | Blockscout BENS `bens.services.blockscout.com/api/v1/1/...` | ENS names, namehash, resolver | none | echoes origin | used for ENS |
 | `ethereum-rpc.publicnode.com` | ENS text records (`text()` eth_call) | none | `*` | used for ENS records |
 | Routescan `api.routescan.io/v2/network/mainnet/evm/<id>/etherscan/api` | Avalanche (and Ethereum's second source) | none | `*` | used where Blockscout has no instance |
-| Etherscan V2 `api.etherscan.io/v2/api` | Linea | none | `*` | **used for Linea only**: without a key it answers Linea at one request per 5 s per IP. Measured 2026-10-17: Base, BNB Chain, OP and Robinhood Chain answer that they are not supported, Arbitrum and Polygon ask for a key |
+| Etherscan V2 `api.etherscan.io/v2/api` | a gap in Polygon PoS's own index | in the relay | `*` | **used through the relay only**, with its key, once per chain when the explorer lists fewer sent transactions than the nonce says. Without a key it answers one request per 5 s per IP, and not for every chain (measured 2026-10-17: Base, BNB Chain, OP and Robinhood Chain answer that they are not supported, Arbitrum and Polygon ask for a key) |
 | Blockscout metadata service (labels) | | none | no CORS header | not usable from the browser |
 | Ankr Advanced API | | key required now | | not used |
 | Label dataset [`dawsbot/eth-labels`](https://github.com/dawsbot/eth-labels) (MIT, updated 2026-09) | CEX hot wallets and known deposit addresses | none | bundled | **used**: 41k exchange addresses, filtered into `src/data/cex.json`. Lookups happen locally |
@@ -263,8 +263,7 @@ funding paid out by a contract) are invisible. Every result carries that limit i
 Without a key, without a relay this page may use, or when the relay's daily quota is spent
 (until 00:00 UTC), it shows in `coverage` as `skipped` with `skipReason`, never as a failed read;
 where the quick check saw the wallet send or hold something there, `incomplete` carries part
-`skipped`, so the score is partial. **Linea** is read from Etherscan V2 without a key, one request
-per 5 s. A keyless chain that only fell back to the relay and met its spent quota stays a failed
+`skipped`, so the score is partial. A keyless chain that only fell back to the relay and met its spent quota stays a failed
 read: its own explorer answers again after its window.
 
 **Rate limit (measured 2026-10-15).** Blockscout's keyless limits differ per API: the REST `/api/v2`

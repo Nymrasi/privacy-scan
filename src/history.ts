@@ -372,9 +372,9 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     // Start all three together; on a refusal of the main list, switch source and restart.
     const tokens$ = () => accountList(http, chain, 'tokentx', me, { ...main, offset: quick() ? QUICK_ROWS : lim.maxToken });
     const internal$ = () => (traces && !quick() ? internalOf(chain) : Promise.resolve([] as Rows));
-    // A source that gives one call per turn (Etherscan without a key, Linea): for an address that is no person its
+    // A source that gives one call per turn (Etherscan without a key): for an address that is no person its
     // token list waits until the transactions turn out empty, the only case its card reads it, so it never takes a
-    // turn from them (USDC's Linea took 5 turns, 21 s, for one list of 50).
+    // turn from them (USDC took 5 turns, 21 s, for one list of 50 on such a source).
     const paced = chain.source.kind === 'etherscan' && !!chain.source.minGapMs;
     const later = quick() && paced;
     let tokP = later ? Promise.resolve([] as Rows) : tokens$();

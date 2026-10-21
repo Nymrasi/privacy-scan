@@ -179,6 +179,9 @@ const MUTANTS: Mutant[] = [
   M('src/sources/explorer.ts', ', ...(q.signal ? { signal: q.signal } : {}) });', ' });', 'l85: a Blockscout list never hears it is no longer needed'),
   M('src/sources/http.ts', '        if (stop) signals.push(stop);\n', '', "l85: a call's own signal never reaches the request"),
   M('src/sources/http.ts', '        if (stop?.aborted) throw unwanted();\n        const msg = e instanceof Error', '        const msg = e instanceof Error', 'l85: a call no longer needed is tried again'),
+  // default chains (2026-10-21): only the register's default chains are read, and none of them straight from Etherscan V2
+  M('src/chains.ts', '  { id: 42220,', "  { id: 990002, name: 'Another chain', native: 'ETH', source: esFree(990002), rpc: 'https://another-rpc.test', explorer: 'https://another.test', defaultOn: true },\n  { id: 42220,", 'default chains: a paced keyless chain on by default'),
+  M('src/chains.ts', "explorer: 'https://celo.blockscout.com',              defaultOn: true", "explorer: 'https://celo.blockscout.com',              defaultOn: false", 'default chains: Celo off by default'),
   M('src/sources/http.ts', '          if (!call.signal) inflight.set(key, p);', '          inflight.set(key, p);', 'l85: a call that can give up is shared with another caller'),
 ];
 

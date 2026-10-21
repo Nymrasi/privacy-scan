@@ -136,7 +136,7 @@ test('the key never comes back: an upstream that echoes its URL and headers is s
   reply = (url, init) => new Response(JSON.stringify({ message: `bad request ${url}`, auth: (init.headers as any)?.authorization, enc: enc(url) }), { status: 400, headers: { 'content-type': 'application/json' } });
   const targets = [
     ETH_V2,
-    'https://api.etherscan.io/v2/api?chainid=59144&module=account&action=txlist&address=0xab',
+    'https://api.etherscan.io/v2/api?chainid=137&module=account&action=txlist&address=0xab',
   ];
   for (const t of targets) {
     const r = await handle(req(t), ENV);
@@ -220,7 +220,7 @@ test('rate limit per caller: the binding when bound, else 300 a minute in memory
 });
 
 test('a keyed chain without its key is refused with a clear reason, not sent keyless', async () => {
-  const r = await handle(req('https://api.etherscan.io/v2/api?chainid=59144&module=account&action=txlist'), {});
+  const r = await handle(req('https://api.etherscan.io/v2/api?chainid=137&module=account&action=txlist'), {});
   assert.equal(r.status, 503);
   assert.equal(r.headers.get('x-nymra-relay'), 'nokey');
   assert.equal(seen.length, 0);
@@ -250,7 +250,7 @@ test('paths: on each host only what the scan reads, with the method it uses', as
   no('POST', `https://eth.blockscout.com/api/v2/addresses/${A}`, 'method not allowed');
   ok('GET', 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api?module=account&action=tokentx&address=' + A);
   no('GET', 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan/api?module=proxy&action=eth_sendRawTransaction', 'path not allowed');
-  ok('GET', `https://api.etherscan.io/v2/api?chainid=59144&module=account&action=txlist&address=${A}`);
+  ok('GET', `https://api.etherscan.io/v2/api?chainid=137&module=account&action=txlist&address=${A}`);
   no('GET', 'https://api.etherscan.io/v2/api?chainid=1&module=contract&action=getsourcecode', 'path not allowed');
   ok('GET', `https://bens.services.blockscout.com/api/v1/1/addresses/${A}`);
   ok('GET', `https://bens.services.blockscout.com/api/v1/1/addresses:lookup?address=${A}`);
@@ -284,7 +284,7 @@ test('every request a whole scan makes through the relay is one the relay accept
     if (res.status === 400 || res.status === 405 || res.status === 403) refused.push(`${res.status} ${decodeURIComponent(url.split('?u=')[1] ?? url)}`);
     return res;
   }) as typeof fetch;
-  const r = await scan(ME, { chainIds: [1, 8453, 43114, 56, 59144], proxy: 'https://nymra.si/p', relay: 'https://nymra.si/p', fetch: through, cache: false });
+  const r = await scan(ME, { chainIds: [1, 8453, 43114, 56, 137], proxy: 'https://nymra.si/p', relay: 'https://nymra.si/p', fetch: through, cache: false });
   assert.deepEqual(refused, [], 'nothing the scan sends is refused');
   assert.ok(seen.length > 5, 'the scan went through the relay');
   assert.equal(r.identity.ens, 'someone.eth');

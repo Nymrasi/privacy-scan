@@ -105,8 +105,7 @@ coverage of both chains says so. The browser never passes it and reads their own
 Every EVM chain Nymra covers has one line in [`src/chains.ts`](src/chains.ts); the ones marked
 `defaultOn` are scanned by default, and every count comes from the register. BNB
 Smart Chain (through NodeReal) is read through the relay, which holds a key for it; without a
-relay this page may use, it shows as skipped, with the reason. Linea is read from Etherscan API V2
-without a key, at most one request per 5 s, which is its keyless limit.
+relay this page may use, it shows as skipped, with the reason.
 
 **Robinhood Chain (4663):** transaction logs are complete, but the chain has no traces and no
 archive state, so internal ETH transfers, and funding paid out by a contract, are invisible there.
@@ -168,8 +167,7 @@ A change to a rule updates `RULES.md` and `RULES_VERSION` in the same pull reque
 - BNB Smart Chain: [NodeReal MegaNode](https://nodereal.io/meganode) (key in the relay).
   Base and Polygon PoS on a server: [Alchemy's Transfers API](https://www.alchemy.com/docs/reference/alchemy-getassettransfers)
   (key in the relay).
-  Linea: [Etherscan API V2](https://docs.etherscan.io/) without a key (one request per 5 s; measured
-  2026-10-17, Linea is the only chain it serves that way).
+  A gap in Polygon PoS's own index: [Etherscan API V2](https://docs.etherscan.io/) (key in the relay).
 - Exchange and service labels: [dawsbot/eth-labels](https://github.com/dawsbot/eth-labels) (MIT),
   filtered into `src/data/cex.json` and `src/data/services.json`, plus the explorer's own public tags.
 

@@ -265,8 +265,8 @@ export interface ScanOptions {
   /** Proxy used only when a direct request is refused (rate limit or bot wall). See proxy/README.md. */
   fallbackProxy?: string;
   /**
-   * The Nymra relay that holds the API keys of Linea and BNB Smart Chain (`https://nymra.si/p`).
-   * Default: `fallbackProxy`. Without one, those two chains show as `skipped`.
+   * The Nymra relay that holds the API key of BNB Smart Chain (`https://nymra.si/p`).
+   * Default: `fallbackProxy`. Without one, that chain shows as `skipped`.
    */
   relay?: string;
   /**
