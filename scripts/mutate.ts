@@ -169,6 +169,11 @@ const MUTANTS: Mutant[] = [
   M('src/score.ts', "export const NAMING_RULES = ['public_identity.public_label'];", 'export const NAMING_RULES: string[] = [];', 'ens: a public label sets no ceiling'),
   M('src/score.ts', "export const RULES_VERSION = '1.4.0';", "export const RULES_VERSION = '1.3.0';", 'ens: the rules version is not raised'),
   M('src/detectors/public-identity.ts', "severity: social.length ? 'high' : 'medium', confidence: 0.95,", "severity: 'medium', confidence: 0.95,", 'ens: records with real handles cost no more than the bare name'),
+  // addrKey remembers each address (2026-10-21): test/hash.test.ts
+  M('src/hash.ts', '    KEYS.set(address, k);\n', '', 'l85: addrKey forgets every address'),
+  M('src/hash.ts', '  let k = KEYS.get(address);', '  let k: string | undefined;', 'l85: addrKey never asks what it remembered'),
+  M('src/hash.ts', '    if (KEYS.size >= KEYS_MAX) KEYS.clear();\n', '', 'l85: KEYS grows without end'),
+  M('src/hash.ts', "k = cyrb53(address.toLowerCase())", "k = cyrb53(address)", 'l85: a checksummed address gets another key'),
 ];
 
 const root = new URL('..', import.meta.url).pathname;
