@@ -341,6 +341,36 @@ test('a slow internal list on Ethereum is asked from its second keyless source (
   assert.ok(Date.now() - t1 < 2000, `read in ${Date.now() - t1} ms after a failed first list`);
 });
 
+test('2026-10-21: the slow Ethereum internal list that lost the race to Routescan gives its place on Blockscout back at once, with the same rows', async () => {
+  const { fetchChain } = await import('../src/history.ts');
+  const { createHttp } = await import('../src/sources/http.ts');
+  const { CHAIN_BY_ID } = await import('../src/chains.ts');
+  const rsInternal = { status: '1', message: 'OK', result: [
+    { blockNumber: '2001', timeStamp: '1750000400', hash: '0x' + 'a1'.repeat(32), from: FRIEND, to: ME, value: '20000000000000000', isError: '0', type: 'call' },
+  ] };
+  const tx = { hash: '0x' + 'b1'.repeat(32), block_number: 1990, timestamp: '2025-06-15T12:00:00Z', from: { hash: ME }, to: { hash: FRIEND }, value: '1', status: 'ok', result: 'success', method: null, fee: { value: '1' } };
+  let intAborted = -1;
+  const t0 = Date.now();
+  const f = (async (u: string, init?: RequestInit) => {
+    if (u.startsWith('https://eth.blockscout.com') && u.includes('/internal-transactions')) {
+      // Blockscout on 2026-10-21: the internal list of nick.eth took 50 s; here it answers only when given up.
+      return new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => { intAborted = Date.now() - t0; reject(new DOMException('aborted', 'AbortError')); }, { once: true }));
+    }
+    if (u.startsWith('https://api.routescan.io/') && u.includes('action=txlistinternal')) return new Response(JSON.stringify(rsInternal));
+    if (u.includes('/transactions')) return new Response(JSON.stringify({ items: [tx], next_page_params: null }));
+    return new Response(JSON.stringify({ items: [], next_page_params: null }));
+  }) as any;
+  // One place on the host: whatever comes after the internal list on Blockscout waits for that place.
+  const h = await fetchChain(createHttp({ fetch: f, cache: null, perHost: 1 }), CHAIN_BY_ID.get(1)!, ME, { maxTx: 500, maxToken: 250, maxInternal: 50, noPrecheck: true, sideBy: Date.now() + 4000, altInternalAfterMs: 100 });
+  const took = Date.now() - t0;
+  assert.ok(took < 1500, `the chain was read in ${took} ms: the lost list still held Blockscout's place until it timed out`);
+  assert.ok(intAborted >= 0 && intAborted < 1500, `the lost internal list was given up at ${intAborted} ms`);
+  assert.equal(h.internal.length, 1, 'the internal transfers come from Routescan');
+  assert.equal(h.txs.length, 1);
+  assert.equal(h.coverage.internalTransfers, 'full');
+  assert.deepEqual(h.coverage.missing, []);
+});
+
 test('history: Blockscout cannot sort internal transfers oldest first, so a full internal page is a stated limit, not a failure', async () => {
   const { fetchChain } = await import('../src/history.ts');
   const { createHttp } = await import('../src/sources/http.ts');

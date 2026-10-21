@@ -358,10 +358,16 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     const list = (c: ChainDef) => accountList(http, c, 'txlist', me, { ...main, offset: quick() ? QUICK_ROWS : lim.maxTx });
     // The internal list, raced against the chain's second keyless source when it is slow (Ethereum).
     const internalOf = (c: ChainDef): Promise<Rows> => {
-      const first = accountList(http, c, 'txlistinternal', me, { ...side, offset: lim.maxInternal });
-      if (!c.alt || keyed(c.alt) || c.source.kind !== 'blockscout') return first;
+      if (!c.alt || keyed(c.alt) || c.source.kind !== 'blockscout') return accountList(http, c, 'txlistinternal', me, { ...side, offset: lim.maxInternal });
+      // Once the race is decided the slow list is not waited for, so it gives its place on the host back: Blockscout
+      // took 36 to 57 s for Ethereum's internal list on 2026-10-21 while Routescan answered in 2 to 5 s, and the request
+      // it no longer needed held one of the host's four places all that time (the funder checks queued behind it).
+      const done = new AbortController();
+      const first = accountList(http, c, 'txlistinternal', me, { ...side, offset: lim.maxInternal, signal: done.signal });
       const alt: ChainDef = { ...c, source: c.alt };
-      return raceAfter(first, () => accountList(http, alt, 'txlistinternal', me, { sort: 'desc', deadline, timeoutMs: 15000, retries: 1, timeoutRetries: 0, offset: lim.maxInternal }), lim.altInternalAfterMs ?? ALT_INTERNAL_AFTER_MS);
+      const won = raceAfter(first, () => accountList(http, alt, 'txlistinternal', me, { sort: 'desc', deadline, timeoutMs: 15000, retries: 1, timeoutRetries: 0, offset: lim.maxInternal }), lim.altInternalAfterMs ?? ALT_INTERNAL_AFTER_MS);
+      won.then(() => done.abort(), () => {});
+      return won;
     };
     // Start all three together; on a refusal of the main list, switch source and restart.
     const tokens$ = () => accountList(http, chain, 'tokentx', me, { ...main, offset: quick() ? QUICK_ROWS : lim.maxToken });

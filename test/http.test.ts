@@ -170,6 +170,53 @@ test('at most perHost requests run at once on one host', async () => {
   assert.equal(peak, 2);
 });
 
+test('2026-10-21: a call that is no longer needed (its own signal) gives its place on the host back at once, is not retried, and never ends another caller', async () => {
+  // A request that hangs until its signal fires, as Blockscout's internal list of a heavy wallet did (36 to 57 s on 2026-10-21).
+  let calls = 0;
+  const f = (async (u: string, init?: RequestInit) => {
+    calls++;
+    if (u.endsWith('/slow')) return new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true }));
+    return new Response('{"ok":1}');
+  }) as any;
+  const slept: number[] = [];
+  const http = createHttp({ fetch: f, cache: null, perHost: 1, timeoutMs: 5000, random: () => 0.5, sleep: async (ms) => { slept.push(ms); } });
+  const stop = new AbortController();
+  const slow = http.getJson('https://eth.blockscout.com/slow', undefined, { signal: stop.signal, retries: 3, timeoutRetries: 3 });
+  slow.catch(() => {});
+  await new Promise((r) => setTimeout(r, 20));
+  const next = http.getJson('https://eth.blockscout.com/next');
+  await new Promise((r) => setTimeout(r, 20));
+  stop.abort();
+  const t0 = Date.now();
+  assert.deepEqual(await next, { ok: 1 });
+  assert.ok(Date.now() - t0 < 500, `the next request on the host waited ${Date.now() - t0} ms`);
+  await assert.rejects(slow, (e: any) => e.kind === 'aborted');
+  assert.equal(calls, 2, 'the call that was no longer needed is not tried again');
+  assert.deepEqual(slept, [], 'nor does it wait out a backoff first');
+  // A call already given up never fetches.
+  await assert.rejects(http.getJson('https://eth.blockscout.com/x', undefined, { signal: stop.signal }), (e: any) => e.kind === 'aborted');
+  assert.equal(calls, 2);
+  // Another caller of the same URL keeps its own request when the first one gives up.
+  const mine = new AbortController();
+  let n = 0;
+  const g = (async (_u: string, init?: RequestInit) => {
+    n++;
+    return new Promise<Response>((resolve, reject) => {
+      const t = setTimeout(() => resolve(new Response('{"v":2}')), 50);
+      init?.signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('aborted', 'AbortError')); }, { once: true });
+    });
+  }) as any;
+  const h = createHttp({ fetch: g, cache: null });
+  const a = h.getJson('https://eth.blockscout.com/same', undefined, { signal: mine.signal });
+  a.catch(() => {});
+  const b = h.getJson('https://eth.blockscout.com/same');
+  await new Promise((r) => setTimeout(r, 10));
+  mine.abort();
+  assert.deepEqual(await b, { v: 2 });
+  await assert.rejects(a, (e: any) => e.kind === 'aborted');
+  assert.equal(n, 2);
+});
+
 test('an aborted scan stops at once', async () => {
   const ac = new AbortController();
   ac.abort();

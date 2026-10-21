@@ -29,6 +29,8 @@ export interface ListQuery {
   stop?: () => boolean;
   /** Told the rows of each page as it comes in (Etherscan shape), so the scan can learn what the address is early. */
   onPage?: (rows: any[]) => void;
+  /** Blockscout only: the list is no longer needed (see CallOptions.signal); it stops and gives its place on the host back. */
+  signal?: AbortSignal;
 }
 
 /** A list cut short by its deadline carries `cut = true`. */
@@ -225,7 +227,7 @@ async function blockscoutList(http: Http, chain: ChainDef, action: AccountAction
     const qs = p.toString();
     let j: any;
     try {
-      j = await http.getJson(qs ? `${base}?${qs}` : base, undefined, { timeoutMs: q.timeoutMs, retries: q.retries, timeoutRetries: q.timeoutRetries });
+      j = await http.getJson(qs ? `${base}?${qs}` : base, undefined, { timeoutMs: q.timeoutMs, retries: q.retries, timeoutRetries: q.timeoutRetries, ...(q.signal ? { signal: q.signal } : {}) });
     } catch (e) {
       if (e instanceof HttpError && e.status === 404) return out; // address never seen
       throw e;

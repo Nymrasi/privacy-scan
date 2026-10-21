@@ -25,6 +25,11 @@ export interface CallOptions {
   timeoutRetries?: number;
   /** At least this long between two requests to this host (a source that allows one request per N s). */
   minGapMs?: number;
+  /**
+   * This call alone gives up when it fires: an answer nobody waits for any more gives its place on the host
+   * (perHost) back at once. Such a call is never shared with another caller of the same URL.
+   */
+  signal?: AbortSignal;
 }
 
 export type HttpErrorKind = 'rate_limit' | 'blocked' | 'not_found' | 'http' | 'timeout' | 'network' | 'bad_json' | 'budget' | 'aborted'
@@ -270,7 +275,7 @@ export function createHttp(o: HttpOptions = {}): Http {
    * waited out for long (BUSY_MS). A relay that is itself limited on a fallback read keeps the normal retries, so
    * a scan never sits a minute on a chain that will not open (features-e2e 'half': 16 s, not 88).
    */
-  async function road(url: string, init: RequestInit | undefined, proxy: string | undefined, tries: number, tmo: number, most = maxWaitMs, timeoutTries = 1, gapMs = 0, shared = false): Promise<string> {
+  async function road(url: string, init: RequestInit | undefined, proxy: string | undefined, tries: number, tmo: number, most = maxWaitMs, timeoutTries = 1, gapMs = 0, shared = false, stop?: AbortSignal): Promise<string> {
     const host = proxy ? new URL(proxy).host : new URL(url).host;
     const target = proxy ? `${proxy}?u=${encodeURIComponent(url)}` : url;
     const st = HOSTS.get(host) ?? {};
@@ -286,8 +291,10 @@ export function createHttp(o: HttpOptions = {}): Http {
       busyMs += w;
       return true;
     };
+    const unwanted = () => new HttpError(0, `${host}: answer no longer needed`, 'aborted');
     for (let attempt = 0; attempt <= tries; attempt++) {
       if (o.signal?.aborted) throw new HttpError(0, 'scan aborted', 'aborted');
+      if (stop?.aborted) throw unwanted();
       if (o.deadline !== undefined && Date.now() >= o.deadline) throw new HttpError(0, 'scan time limit reached', 'timeout');
       // Pacing: a known refusal window, or a nearly empty quota, waits for the reset.
       const now = Date.now();
@@ -305,6 +312,7 @@ export function createHttp(o: HttpOptions = {}): Http {
       }
       if (http.count >= budget) throw new HttpError(0, 'request budget of this scan reached', 'budget');
       await acquire(host);
+      if (stop?.aborted) { release(host); throw unwanted(); }
       let res: Response;
       try {
         http.count++;
@@ -313,10 +321,12 @@ export function createHttp(o: HttpOptions = {}): Http {
         if (st.remaining !== undefined) st.remaining--;
         const signals = [AbortSignal.timeout(tmo)];
         if (o.signal) signals.push(o.signal);
+        if (stop) signals.push(stop);
         res = await f(target, { ...init, signal: AbortSignal.any(signals), headers: { accept: 'application/json', ...(init?.headers ?? {}) } });
       } catch (e) {
         release(host);
         if (o.signal?.aborted) throw new HttpError(0, 'scan aborted', 'aborted');
+        if (stop?.aborted) throw unwanted();
         const msg = e instanceof Error ? `${e.name} ${e.message}` : String(e);
         last = /timeout|abort/i.test(msg) ? new HttpError(0, `${host} timed out`, 'timeout') : new HttpError(0, `${host} unreachable`, 'network');
         // A query that timed out is usually slow, not unlucky: one more try, not three.
@@ -332,6 +342,7 @@ export function createHttp(o: HttpOptions = {}): Http {
       } finally {
         release(host);
       }
+      if (stop?.aborted) throw unwanted();
       const left = res.headers.get('x-ratelimit-remaining');
       if (left !== null && Number.isFinite(Number(left))) {
         st.remaining = Number(left);
@@ -403,22 +414,22 @@ export function createHttp(o: HttpOptions = {}): Http {
       const relay = o.relay ?? o.fallbackProxy ?? o.proxy;
       if (!relay) throw new HttpError(0, 'no relay configured for a keyed source', 'needs_key');
       if (relayDown(relay)) throw new HttpError(0, 'no relay for this page', 'needs_key');
-      return road(url, init, relay, tries, tmo, maxWaitMs, tt, 0, true);
+      return road(url, init, relay, tries, tmo, maxWaitMs, tt, 0, true, call.signal);
     }
     // A paced keyless source (Etherscan without a key, one call per 5 s: Linea) stays with each visitor. It never goes
     // through the relay, not first and not when it is refused, so a launch's crowd never shares the relay's one
     // Etherscan key (5 calls a second for all of them): that key reads only a gap in Polygon's index (`via: 'relay'`).
-    if (o.proxy || !o.fallbackProxy || gap > 0) return road(url, init, o.proxy, tries, tmo, maxWaitMs, tt, gap);
+    if (o.proxy || !o.fallbackProxy || gap > 0) return road(url, init, o.proxy, tries, tmo, maxWaitMs, tt, gap, false, call.signal);
     // The direct road on its own, waiting out a window up to the longest wait: no relay can help.
-    const direct = () => road(url, init, undefined, tries, tmo, maxWaitMs, tt, gap);
+    const direct = () => road(url, init, undefined, tries, tmo, maxWaitMs, tt, gap, false, call.signal);
     if (relayDown(o.fallbackProxy)) return direct();
     // With a fallback, a long rate-limit window is not waited out on the direct road.
     try {
-      return await road(url, init, undefined, tries, tmo, Math.min(maxWaitMs, FALLBACK_AFTER_MS), tt, gap);
+      return await road(url, init, undefined, tries, tmo, Math.min(maxWaitMs, FALLBACK_AFTER_MS), tt, gap, false, call.signal);
     } catch (e) {
       if (!refused(e)) throw e;
       try {
-        return await road(url, init, o.fallbackProxy, tries, tmo, maxWaitMs, tt);
+        return await road(url, init, o.fallbackProxy, tries, tmo, maxWaitMs, tt, 0, false, call.signal);
       } catch (r) {
         // The relay cannot serve this read (it refuses this page, or holds no key for this source).
         if (r instanceof HttpError && r.kind === 'needs_key') {
@@ -443,10 +454,11 @@ export function createHttp(o: HttpOptions = {}): Http {
       if (text !== undefined) {
         http.cached++;
       } else {
-        let p = inflight.get(key);
+        // A call that can give up on its own (call.signal) is not shared: its end must not end another caller's.
+        let p = call.signal ? undefined : inflight.get(key);
         if (!p) {
-          p = fetchText(url, init, call).finally(() => inflight.delete(key));
-          inflight.set(key, p);
+          p = call.signal ? fetchText(url, init, call) : fetchText(url, init, call).finally(() => inflight.delete(key));
+          if (!call.signal) inflight.set(key, p);
         }
         text = await p;
       }

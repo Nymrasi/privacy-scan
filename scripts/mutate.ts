@@ -174,6 +174,12 @@ const MUTANTS: Mutant[] = [
   M('src/hash.ts', '  let k = KEYS.get(address);', '  let k: string | undefined;', 'l85: addrKey never asks what it remembered'),
   M('src/hash.ts', '    if (KEYS.size >= KEYS_MAX) KEYS.clear();\n', '', 'l85: KEYS grows without end'),
   M('src/hash.ts', "k = cyrb53(address.toLowerCase())", "k = cyrb53(address)", 'l85: a checksummed address gets another key'),
+  // A lost internal list gives its place on the host back (2026-10-21): test/http.test.ts, test/scan.test.ts
+  M('src/history.ts', 'won.then(() => done.abort(), () => {});', 'won.then(() => {}, () => {});', 'l85: the lost internal list keeps its place on Blockscout'),
+  M('src/sources/explorer.ts', ', ...(q.signal ? { signal: q.signal } : {}) });', ' });', 'l85: a Blockscout list never hears it is no longer needed'),
+  M('src/sources/http.ts', '        if (stop) signals.push(stop);\n', '', "l85: a call's own signal never reaches the request"),
+  M('src/sources/http.ts', '        if (stop?.aborted) throw unwanted();\n        const msg = e instanceof Error', '        const msg = e instanceof Error', 'l85: a call no longer needed is tried again'),
+  M('src/sources/http.ts', '          if (!call.signal) inflight.set(key, p);', '          inflight.set(key, p);', 'l85: a call that can give up is shared with another caller'),
 ];
 
 const root = new URL('..', import.meta.url).pathname;
