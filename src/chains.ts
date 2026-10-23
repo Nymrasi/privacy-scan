@@ -56,6 +56,12 @@ export interface ChainDef {
    * for the first page of 50 on 2026-10-23 (its transactions 1 s), so both 15 s tries fell off and the list was lost.
    */
   tokenPageMs?: number;
+  /**
+   * The day this chain's explorers start, in words, for a chain that went through a regenesis: what an address sent
+   * before it is in no explorer (OP Mainnet, 11 November 2021: sassal.eth's nonces 0 to 8). Those lowest nonces are
+   * then no gap in the index (fetchChainWhole): the chain is read and scored, and its first funding counts as unknown.
+   */
+  regenesis?: string;
   /** Scanned by default. Others only when asked for in `opts.chainIds`. */
   defaultOn: boolean;
   /**
@@ -90,7 +96,7 @@ export const CHAINS: ChainDef[] = [
   { id: 1,        name: 'Ethereum',        native: 'ETH',  source: bs('https://eth.blockscout.com'), alt: rs(1),                rpc: 'https://ethereum-rpc.publicnode.com', explorer: 'https://eth.blockscout.com',               defaultOn: true },
   { id: 8453,     name: 'Base',            native: 'ETH',  source: bs('https://base.blockscout.com', true), keyedAlt: al('base-mainnet'), rpc: 'https://base-rpc.publicnode.com', explorer: 'https://base.blockscout.com', defaultOn: true },
   { id: 42161,    name: 'Arbitrum One',    native: 'ETH',  source: bs('https://arbitrum.blockscout.com', true),     rpc: 'https://arbitrum-one-rpc.publicnode.com', explorer: 'https://arbitrum.blockscout.com',          tokenPageMs: 30_000, defaultOn: true },
-  { id: 10,       name: 'OP Mainnet',      native: 'ETH',  source: bs('https://explorer.optimism.io'),              rpc: 'https://optimism-rpc.publicnode.com', explorer: 'https://explorer.optimism.io',             defaultOn: true },
+  { id: 10,       name: 'OP Mainnet',      native: 'ETH',  source: bs('https://explorer.optimism.io'),              rpc: 'https://optimism-rpc.publicnode.com', explorer: 'https://explorer.optimism.io',             regenesis: '11 November 2021', defaultOn: true },
   { id: 137,      name: 'Polygon PoS',     native: 'POL',  source: bs('https://polygon.blockscout.com', true), keyedAlt: al('polygon-mainnet'), gapAlt: es(137), rpc: 'https://polygon-bor-rpc.publicnode.com', explorer: 'https://polygon.blockscout.com', defaultOn: true },
   { id: 4663,     name: 'Robinhood Chain', native: 'ETH',  source: bs('https://robinhoodchain.blockscout.com', true), rpc: 'https://rpc.mainnet.chain.robinhood.com', explorer: 'https://robinhoodchain.blockscout.com',  defaultOn: true, traces: false, limits: [RH_LIMIT] },
   { id: 43114,    name: 'Avalanche C-Chain', native: 'AVAX', source: rs(43114),                                    rpc: 'https://avalanche-c-chain-rpc.publicnode.com/ext/bc/C/rpc', explorer: 'https://snowtrace.io',                     defaultOn: true },

@@ -194,6 +194,14 @@ const MUTANTS: Mutant[] = [
   M('src/history.ts', "const txCut = !!(first.cut || (intR.status === 'fulfilled' && intR.value.cut));", "const txCut = !!(first.cut || (intR.status === 'fulfilled' && intR.value.cut)) || tokCut;", 'l100: a cut token list reads as unread transactions'),
   M('src/history.ts', "    if (tokCut) coverage.limitations.push(", "    if (false) coverage.limitations.push(", 'l100: a cut token list says nothing in its limits'),
   M('src/history.ts', 'if (truncTx || truncInt || txCut || tokens.length >= lim.maxToken) coverage.limitations.push(txCut', 'if (truncated) coverage.limitations.push(cut', 'l100: a cut token list speaks of a long transaction history'),
+  // L100 2026-10-23 (E): OP Mainnet's regenesis (2021-11-11): the lowest nonces missing are no gap in the index
+  M('src/history.ts', '&& !beforeStart && (own.size === 0', '&& (own.size === 0', 'l100: sends before the regenesis are a gap'),
+  M('src/history.ts', 'const beforeStart = chain.regenesis && !truncTx', 'const beforeStart = !truncTx', 'l100: every chain reads missing old sends as a regenesis'),
+  M('src/history.ts', ' && nonces.size === own.size\n', '\n', 'l100: a send without a nonce passes as before the regenesis'),
+  M('src/history.ts', '&& Math.min(...nonces) === sent - own.size ?', '?', 'l100: a hole anywhere passes as before the regenesis'),
+  M('src/history.ts', "oldTx.some((t) => t.from === me)) && !beforeStart;", "oldTx.some((t) => t.from === me));", 'l100: a funder is named after the regenesis cut the start off'),
+  M('src/chains.ts', "regenesis: '11 November 2021', ", '', 'l100: OP Mainnet has no regenesis'),
+  M('src/sources/explorer.ts', " nonce: x.nonce ?? undefined,", '', 'l100: Blockscout rows lose their nonce'),
 ];
 
 const root = new URL('..', import.meta.url).pathname;

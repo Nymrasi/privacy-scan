@@ -443,8 +443,17 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     const own = new Map<string, Transfer>();
     for (const t of [...txs, ...oldTx]) if (t.from === me && !own.has(t.hash)) own.set(t.hash, t);
     const firstOwn = [...own.values()].sort((a, b) => a.block - b.block || a.timestamp - b.timestamp)[0];
+    // (A contract's nonce counts the contracts it created, so the checks on it are for wallets only.)
+    const sent = pre && !pre.code ? pre.nonce : 0;
+    // A chain whose explorer starts at a regenesis (ChainDef.regenesis): the transactions the address sent before it are
+    // in no explorer. They are exactly the lowest nonces, so the full list holds the newest ones without a hole: nonces
+    // `sent - own.size` to `sent - 1`, each of its own sends with one. Those are no gap in the index: the chain is read
+    // and scored without a line about it (his 18711, 2026-10-23), and the first funding is not on this chain's page.
+    const nonces = new Set(first.filter((r) => r.from === me && r.nonce !== undefined).map((r) => Number(r.nonce)));
+    const beforeStart = chain.regenesis && !truncTx && own.size > 0 && sent > own.size && nonces.size === own.size
+      && Math.min(...nonces) === sent - own.size ? sent - own.size : 0;
     // In a long history the first transaction must be on the oldest page; else it lies in the part between the pages.
-    const firstKnown = !truncTx || oldTx.some((t) => t.from === me);
+    const firstKnown = (!truncTx || oldTx.some((t) => t.from === me)) && !beforeStart;
     if (truncTx && !oldFailed && !firstKnown) coverage.limitations.push('Long history: the first transaction this address signed here is older than what was read, so what paid for it is unknown.');
     const firstFunding = firstKnown && !oldFailed ? fundingOf(firstOwn, [...txs, ...oldTx, ...internal, ...oldInt]) : undefined;
 
@@ -457,9 +466,7 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       : `Long history: the newest ${lim.maxTx} transactions were read, plus the oldest ones for funding.`);
     // A gap in the explorer's index: the chain says this address sent transactions, the full list
     // read here shows none of them (or far fewer). Never "no activity": the history is unread.
-    // (A contract's nonce counts the contracts it created, so the check is for wallets only.)
-    const sent = pre && !pre.code ? pre.nonce : 0;
-    const gap = sent > 0 && !truncTx && (own.size === 0 || (sent - own.size >= 3 && own.size < sent * 0.9));
+    const gap = sent > 0 && !truncTx && !beforeStart && (own.size === 0 || (sent - own.size >= 3 && own.size < sent * 0.9));
     if (gap) coverage.missing.push(`transactions (the explorer lists ${own.size === 0 ? 'none' : own.size} of the ${sent} this address sent here)`);
     if (all.length === 0 && !gap) coverage.status = 'no_activity';
     else if (all.length) {

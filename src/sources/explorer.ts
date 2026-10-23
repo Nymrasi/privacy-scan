@@ -178,7 +178,7 @@ function v2Row(action: AccountAction, x: any): any {
       blockNumber: String(x.block_number), timeStamp: String(unix(x.timestamp)), hash: x.hash,
       from: lc(x.from?.hash), to: lc(x.to?.hash ?? x.created_contract?.hash), value: String(x.value ?? '0'),
       gas: String(x.gas_limit ?? ''), gasPrice: String(x.gas_price ?? ''), maxPriorityFeePerGas: x.max_priority_fee_per_gas ?? undefined,
-      input, methodId: input.slice(0, 10), isError: x.status === 'error' ? '1' : '0',
+      input, methodId: input.slice(0, 10), isError: x.status === 'error' ? '1' : '0', nonce: x.nonce ?? undefined,
       _from: side(x.from), _to: side(x.to ?? x.created_contract),
     };
   }

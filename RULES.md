@@ -287,6 +287,9 @@ range of plus or minus one hour.
 - When a chain's RPC says the address sent transactions there but the explorer's complete list
   shows none of them (or far fewer: at least 3 and more than 10% missing), the explorer's index has
   a gap. The chain is `partial`, never "no activity", and the result says how many are missing.
+  OP Mainnet's explorers start at its regenesis on 11 November 2021, so what an address sent there
+  before that is in no explorer. When exactly its oldest transactions are missing, that is no gap:
+  the chain is read and scored, and the first funding there is unknown.
 - A chain where the address never sent a transaction and holds no native coin is checked with one
   cheap RPC call and not read further. Tokens it only received there are not listed.
 - Token transfers count only when they really happened (see "Only real transfers count"), so
