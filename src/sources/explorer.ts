@@ -230,6 +230,9 @@ async function blockscoutList(http: Http, chain: ChainDef, action: AccountAction
       j = await http.getJson(qs ? `${base}?${qs}` : base, undefined, { timeoutMs: q.timeoutMs, retries: q.retries, timeoutRetries: q.timeoutRetries, ...(q.signal ? { signal: q.signal } : {}) });
     } catch (e) {
       if (e instanceof HttpError && e.status === 404) return out; // address never seen
+      // A later page that fails (a timeout, a refusal) keeps the pages already read: the list is marked `cut`,
+      // as when its deadline passes. Arbitrum One's token list threw 100 read rows away this way on 2026-10-23.
+      if (out.length > 0 && e instanceof HttpError && e.kind !== 'aborted') { out.cut = true; break; }
       throw e;
     }
     const items: any[] = Array.isArray(j?.items) ? j.items : [];

@@ -183,6 +183,17 @@ const MUTANTS: Mutant[] = [
   M('src/chains.ts', '  { id: 42220,', "  { id: 990002, name: 'Another chain', native: 'ETH', source: esFree(990002), rpc: 'https://another-rpc.test', explorer: 'https://another.test', defaultOn: true },\n  { id: 42220,", 'default chains: a paced keyless chain on by default'),
   M('src/chains.ts', "explorer: 'https://celo.blockscout.com',              defaultOn: true", "explorer: 'https://celo.blockscout.com',              defaultOn: false", 'default chains: Celo off by default'),
   M('src/sources/http.ts', '          if (!call.signal) inflight.set(key, p);', '          inflight.set(key, p);', 'l85: a call that can give up is shared with another caller'),
+  // L100 2026-10-23: a later page that fails keeps the pages read (A); Arbitrum One's slow token pages wait longer, once (B)
+  M('src/sources/explorer.ts', "      if (out.length > 0 && e instanceof HttpError && e.kind !== 'aborted') { out.cut = true; break; }\n", '', 'l100: a failed later page throws the read pages away'),
+  M('src/sources/explorer.ts', "e instanceof HttpError && e.kind !== 'aborted') { out.cut", "e instanceof HttpError) { out.cut", 'l100: an abort is kept as a cut list'),
+  M('src/sources/explorer.ts', "      if (out.length > 0 && e instanceof HttpError && e.kind", "      if (e instanceof HttpError && e.kind", 'l100: a refused first page passes as an empty cut list'),
+  M('src/history.ts', '{ timeoutMs: chain.tokenPageMs, timeoutRetries: 0 }', '{ timeoutMs: chain.tokenPageMs, timeoutRetries: 1 }', 'l100: a slow token page gets a second try'),
+  M('src/history.ts', '{ timeoutMs: chain.tokenPageMs, timeoutRetries: 0 }', '{ timeoutMs: 15000, timeoutRetries: 0 }', 'l100: a slow token page waits the usual 15 s'),
+  M('src/chains.ts', 'tokenPageMs: 30_000, ', '', 'l100: Arbitrum One waits the usual 15 s for a token page'),
+  M('src/history.ts', "    if (tokCut) coverage.missing.push('older token transfers (time limit)');\n", '', 'l100: a cut token list is no gap'),
+  M('src/history.ts', "const txCut = !!(first.cut || (intR.status === 'fulfilled' && intR.value.cut));", "const txCut = !!(first.cut || (intR.status === 'fulfilled' && intR.value.cut)) || tokCut;", 'l100: a cut token list reads as unread transactions'),
+  M('src/history.ts', "    if (tokCut) coverage.limitations.push(", "    if (false) coverage.limitations.push(", 'l100: a cut token list says nothing in its limits'),
+  M('src/history.ts', 'if (truncTx || truncInt || txCut || tokens.length >= lim.maxToken) coverage.limitations.push(txCut', 'if (truncated) coverage.limitations.push(cut', 'l100: a cut token list speaks of a long transaction history'),
 ];
 
 const root = new URL('..', import.meta.url).pathname;

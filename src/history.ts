@@ -370,7 +370,8 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       return won;
     };
     // Start all three together; on a refusal of the main list, switch source and restart.
-    const tokens$ = () => accountList(http, chain, 'tokentx', me, { ...main, offset: quick() ? QUICK_ROWS : lim.maxToken });
+    // A chain whose explorer is slow on this one list waits longer for a page, once (ChainDef.tokenPageMs).
+    const tokens$ = () => accountList(http, chain, 'tokentx', me, { ...main, ...(chain.tokenPageMs ? { timeoutMs: chain.tokenPageMs, timeoutRetries: 0 } : {}), offset: quick() ? QUICK_ROWS : lim.maxToken });
     const internal$ = () => (traces && !quick() ? internalOf(chain) : Promise.resolve([] as Rows));
     // A source that gives one call per turn (Etherscan without a key): for an address that is no person its
     // token list waits until the transactions turn out empty, the only case its card reads it, so it never takes a
@@ -415,7 +416,11 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       coverage.missing.push(`internal transfers (${reasonOf(intR.reason)})`);
     }
 
-    const cut = !!(first.cut || (tokR.status === 'fulfilled' && tokR.value.cut) || (intR.status === 'fulfilled' && intR.value.cut));
+    // A list cut short (its deadline, or a later page that failed) keeps what it read. A cut token list says so on its own
+    // line, so it counts as a gap in the tokens (a partial score), never as unread transactions.
+    const tokCut = tokR.status === 'fulfilled' && !!tokR.value.cut;
+    const txCut = !!(first.cut || (intR.status === 'fulfilled' && intR.value.cut));
+    const cut = txCut || tokCut;
     const truncTx = txs.length >= lim.maxTx || !!first.cut;
     const truncInt = internal.length >= lim.maxInternal || (intR.status === 'fulfilled' && !!intR.value.cut);
     const truncated = truncTx || tokens.length >= lim.maxToken || truncInt || cut;
@@ -447,7 +452,7 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     coverage.txCount = txs.length;
     coverage.tokenTransferCount = tokens.length;
     coverage.truncated = truncated;
-    if (truncated) coverage.limitations.push(cut
+    if (truncTx || truncInt || txCut || tokens.length >= lim.maxToken) coverage.limitations.push(txCut
       ? `Long history on a slow explorer: the newest ${txs.length} transactions were read in the time limit, plus the oldest ones for funding.`
       : `Long history: the newest ${lim.maxTx} transactions were read, plus the oldest ones for funding.`);
     // A gap in the explorer's index: the chain says this address sent transactions, the full list
@@ -465,7 +470,9 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
       coverage.firstSeen = firsts.length ? Math.min(...firsts) : undefined;
       coverage.lastSeen = ts.length ? Math.max(...ts) : undefined;
     }
-    if (cut) coverage.missing.push('older transactions (time limit)');
+    if (tokCut) coverage.limitations.push(`Many token transfers on a slow explorer: the newest ${tokens.length} were read in the time limit.`);
+    if (txCut) coverage.missing.push('older transactions (time limit)');
+    if (tokCut) coverage.missing.push('older token transfers (time limit)');
     if (coverage.missing.length && (coverage.status === 'scanned' || coverage.status === 'no_activity')) coverage.status = 'partial';
     coverage.durationMs = Date.now() - t0;
     const self = selfTags([...txR.value, ...(tokR.status === 'fulfilled' ? tokR.value : []), ...(intR.status === 'fulfilled' ? intR.value : [])], me);

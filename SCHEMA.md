@@ -204,7 +204,7 @@ package; never hardcode them.
 | `source` | `blockscout`, `routescan`, `etherscan`, `nodereal`, `alchemy` (Base and Polygon PoS on a server, `keyedAlts`) or `rpc` |
 | `txCount`, `tokenTransferCount` | how much was read |
 | `internalTransfers` | `full`, `none` (the chain has no traces), `not_fetched` |
-| `truncated` | history was cut at the page limit; older activity not read |
+| `truncated` | history was cut at the page limit, or a later page could not be read (then `missing` has `older transactions (time limit)` or `older token transfers (time limit)`, and the pages read before it count); older activity not read |
 | `limitations` | plain sentences to show the user |
 | `missing` | parts that should have been read but were not, e.g. `internal transfers`; not empty means `partial`. `transactions (the explorer lists none of the 23 this address sent here)` means the explorer's index has a gap: the chain's RPC says the address sent transactions that the full list does not show. `incomplete` then carries it as `part: 'chain'` |
 | `skipReason` | for a `skipped` chain that only the relay reads (BNB Smart Chain): `no_key`, the relay has no key for it, or there is no relay this page may use (it serves nymra.si only); `quota`, the relay's daily quota is spent and comes back at 00:00 UTC. A retry helps with neither |
