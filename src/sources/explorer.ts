@@ -20,6 +20,8 @@ export interface ListQuery {
   endblock?: number;
   /** Blockscout only: only transactions sent by (`from`) or to (`to`) the address. */
   filter?: 'from' | 'to';
+  /** Blockscout token list only: one direction of it (see ChainDef.tokenSplit). Set by blockscoutList itself. */
+  tokenDir?: 'from' | 'to';
   /** Stop paging after this time (ms since epoch); rows read so far are kept and the list is marked `cut`. */
   deadline?: number;
   timeoutMs?: number;
@@ -34,7 +36,7 @@ export interface ListQuery {
 }
 
 /** A list cut short by its deadline carries `cut = true`. */
-export type Rows = any[] & { cut?: boolean };
+export type Rows = any[] & { cut?: boolean; more?: boolean };
 
 const V2_PAGE = 50;
 /** Retries on a paced keyless source (Etherscan V2 without a key), whose refusals pass in a turn. */
@@ -187,7 +189,7 @@ function v2Row(action: AccountAction, x: any): any {
       blockNumber: String(x.block_number), timeStamp: String(unix(x.timestamp)), hash: x.transaction_hash,
       from: lc(x.from?.hash), to: lc(x.to?.hash), value: String(x.total?.value ?? '0'),
       tokenDecimal: String(x.total?.decimals ?? x.token?.decimals ?? ''), tokenSymbol: String(x.token?.symbol ?? ''),
-      contractAddress: lc(x.token?.address_hash ?? x.token?.address), _from: side(x.from), _to: side(x.to),
+      contractAddress: lc(x.token?.address_hash ?? x.token?.address), logIndex: x.log_index ?? undefined, _from: side(x.from), _to: side(x.to),
       // A token with a market price is a real, listed token. Address-poisoning fakes ("USDT" clones,
       // look-alike symbols) have none, and 0 holders (measured on a Revolut deposit address, 2026-10-16).
       _priced: x.token ? x.token.exchange_rate != null && x.token.exchange_rate !== '' : undefined,
@@ -201,12 +203,44 @@ function v2Row(action: AccountAction, x: any): any {
   };
 }
 
+/** Newest first, as Blockscout lists token transfers: block, then log index within it. */
+const tokenKey = (r: any): [number, number] => [Number(r.blockNumber), Number(r.logIndex ?? 0)];
+const older = (a: [number, number], b: [number, number]) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
+
+/**
+ * A token list read as its two directions side by side (ChainDef.tokenSplit), merged into the list Blockscout gives
+ * for both at once: the same rows in the same order (newest block first, then log index), a transfer to itself once.
+ * Base's Blockscout took 8 to 17 s for one page of both on 2026-10-24 and 1 to 10 s for a page of one direction. A
+ * direction that has more rows than it read (its count, a time limit, a failed later page, a stop) bounds the result:
+ * rows older than its last one could miss some of its own, so they are left out; only a time limit or a failed page
+ * marks the list cut, as it would the list of both.
+ */
+async function blockscoutTokensSplit(http: Http, chain: ChainDef, address: string, q: ListQuery): Promise<Rows> {
+  const want = q.offset ?? V2_PAGE;
+  const [to, from] = await Promise.all((['to', 'from'] as const).map((d) => blockscoutList(http, chain, 'tokentx', address, { ...q, tokenDir: d })));
+  const seen = new Set<string>();
+  let rows = [...to, ...from].filter((r) => { const k = `${r.hash}:${r.logIndex}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  rows.sort((a, b) => { const x = tokenKey(a), y = tokenKey(b); return y[0] - x[0] || y[1] - x[1]; });
+  let bound: [number, number] | null = null;
+  for (const d of [to, from]) if (d.more && d.length) { const k = tokenKey(d[d.length - 1]); if (!bound || older(bound, k)) bound = k; }
+  const all = rows.length;
+  if (bound) rows = rows.filter((r) => !older(tokenKey(r), bound!));
+  const out: Rows = rows.slice(0, want);
+  // Cut only as the list of both would be: a direction cut by its deadline or a failed later page. A direction that
+  // stopped at its count, or because the scan learned the address is no person, bounds the merge without a gap.
+  if (to.cut || from.cut) out.cut = true;
+  if (to.more || from.more || all > want) out.more = true;
+  return out;
+}
+
 async function blockscoutList(http: Http, chain: ChainDef, action: AccountAction, address: string, q: ListQuery): Promise<Rows> {
+  if (action === 'tokentx' && chain.tokenSplit && !q.tokenDir && q.sort !== 'asc') return blockscoutTokensSplit(http, chain, address, q);
   const path = action === 'txlist' ? 'transactions' : action === 'tokentx' ? 'token-transfers' : 'internal-transactions';
   const base = `${chain.source.api.replace(/\/$/, '')}/api/v2/addresses/${address}/${path}`;
   const want = q.offset ?? V2_PAGE;
   const fixed = new URLSearchParams();
   if (action === 'tokentx') fixed.set('type', 'ERC-20');
+  if (action === 'tokentx' && q.tokenDir) fixed.set('filter', q.tokenDir);
   if (q.filter && action === 'txlist') fixed.set('filter', q.filter);
   // The internal-transactions list takes no `sort` or `order` (422 "Unexpected field: order", measured
   // 2026-10-15): it is newest first only. history.ts never asks it for the oldest page; this keeps it so.
@@ -246,6 +280,7 @@ async function blockscoutList(http: Http, chain: ChainDef, action: AccountAction
     if (out.length > from) q.onPage?.(out.slice(from));
     next = done ? null : j?.next_page_params ?? null;
   }
+  if (next || out.cut) out.more = true;
   return out;
 }
 

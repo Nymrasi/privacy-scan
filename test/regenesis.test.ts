@@ -1,4 +1,4 @@
-// L100 2026-10-23 (proposal E): OP Mainnet went through a regenesis on 11 November 2021, and no explorer lists what an
+// OP Mainnet went through a regenesis on 11 November 2021, and no explorer lists what an
 // address sent before it. sassal.eth sent 41 transactions there; the explorer lists nonces 9 to 40, its oldest on
 // 2021-11-12 (block 2,910). The gap check read that as a hole in the index, so the scan gave no score at all.
 // On a chain with ChainDef.regenesis, missing nonces that are exactly the lowest ones are no gap: the chain is read and

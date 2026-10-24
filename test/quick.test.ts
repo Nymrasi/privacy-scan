@@ -117,7 +117,8 @@ test('a person is read in full, as before: every page, the internal list and the
   const r = await scan(PERSON, opts({ me: PERSON }, log));
   assert.equal(r.addressType, 'eoa');
   assert.equal(asked(log, 'eth', 'transactions').length, 3);
-  assert.equal(asked(log, 'base', 'token-transfers').length, 2);
+  // Base reads its token list as its two directions side by side (ChainDef.tokenSplit): two pages each.
+  assert.equal(asked(log, 'base', 'token-transfers').length, 4);
   assert.equal(asked(log, 'base', 'internal-transactions').length, 1);
   for (const c of r.coverage.filter((x) => x.status !== 'no_activity')) {
     assert.equal(c.txCount, 150);

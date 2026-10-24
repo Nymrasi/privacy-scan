@@ -87,7 +87,8 @@ test('scan(): streams, prechecks, falls back to the proxy on a long 429, and kee
   assert.equal(cov[10].status, 'no_activity', 'OP skipped by the nonce + balance check');
   assert.equal(cov[56].status, 'no_activity', 'BNB: the public RPC check finds it empty, no relay needed');
   assert.ok(!log.some((u) => u.startsWith('https://explorer.optimism.io')), 'no explorer call for an empty chain');
-  assert.equal(log.filter((u) => u.startsWith('https://base.blockscout.com')).length, 3, 'a long 429 is not retried');
+  // 4: the token list asks each direction once (ChainDef.tokenSplit); none of them is retried after the long 429.
+  assert.equal(log.filter((u) => u.startsWith('https://base.blockscout.com')).length, 4, 'a long 429 is not retried');
 
   assert.equal(r.identity.ens, 'someone.eth');
   const ids = r.findings.map((f) => f.id);

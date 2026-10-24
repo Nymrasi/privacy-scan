@@ -1,4 +1,4 @@
-// L100 2026-10-23: Arbitrum One's Blockscout took 9 to 22 s for one page of token transfers (its transactions 1 s).
+// Arbitrum One's Blockscout took 9 to 22 s for one page of token transfers (its transactions 1 s).
 // Two things went wrong at once: both 15 s tries of a page fell off, and a list whose third page failed threw its
 // first two pages away (vitalik.eth: 100 read rows, Arbitrum One read with no tokens at all).
 // A: a later page that fails keeps the pages already read; the chain is partial with a gap in the tokens (or the
@@ -147,7 +147,7 @@ test('B: a token page slower than the chain\'s wait is asked once, not twice, an
   assert.equal(tokenAsks(log).length, 1, 'one try of tokenPageMs, never the usual second try');
 });
 
-test('B: the register gives only Arbitrum One a longer token page, 30 s: its slowest page on 2026-10-23 took 22 s', () => {
+test('B: the register gives Arbitrum One and Base a longer token page, 30 s: their slowest pages took 22 s (2026-10-23) and 17 s (2026-10-24)', () => {
   const slow = CHAINS.filter((c) => c.tokenPageMs !== undefined).map((c) => [c.id, c.tokenPageMs]);
-  assert.deepEqual(slow, [[42161, 30_000]]);
+  assert.deepEqual(slow, [[8453, 30_000], [42161, 30_000]]);
 });

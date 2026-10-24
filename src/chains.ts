@@ -57,6 +57,13 @@ export interface ChainDef {
    */
   tokenPageMs?: number;
   /**
+   * This chain's Blockscout is slow on the token list of both directions at once and fast on each direction: Base took
+   * 8 to 17 s for one page of vitalik.eth's on 2026-10-24 and 1 to 10 s for a page of one direction (filter=to, filter=from);
+   * Arbitrum One 21 s for three pages of both and 2 s for three of one. OP Mainnet and Ethereum are fast either way.
+   * The list is read as its two directions side by side and merged into the same rows in the same order.
+   */
+  tokenSplit?: true;
+  /**
    * The day this chain's explorers start, in words, for a chain that went through a regenesis: what an address sent
    * before it is in no explorer (OP Mainnet, 11 November 2021: sassal.eth's nonces 0 to 8). Those lowest nonces are
    * then no gap in the index (fetchChainWhole): the chain is read and scored, and its first funding counts as unknown.
@@ -94,8 +101,8 @@ const RH_LIMIT = 'Robinhood Chain has no traces and no archive state: internal E
 // prettier-ignore
 export const CHAINS: ChainDef[] = [
   { id: 1,        name: 'Ethereum',        native: 'ETH',  source: bs('https://eth.blockscout.com'), alt: rs(1),                rpc: 'https://ethereum-rpc.publicnode.com', explorer: 'https://eth.blockscout.com',               defaultOn: true },
-  { id: 8453,     name: 'Base',            native: 'ETH',  source: bs('https://base.blockscout.com', true), keyedAlt: al('base-mainnet'), rpc: 'https://base-rpc.publicnode.com', explorer: 'https://base.blockscout.com', defaultOn: true },
-  { id: 42161,    name: 'Arbitrum One',    native: 'ETH',  source: bs('https://arbitrum.blockscout.com', true),     rpc: 'https://arbitrum-one-rpc.publicnode.com', explorer: 'https://arbitrum.blockscout.com',          tokenPageMs: 30_000, defaultOn: true },
+  { id: 8453,     name: 'Base',            native: 'ETH',  source: bs('https://base.blockscout.com', true), keyedAlt: al('base-mainnet'), rpc: 'https://base-rpc.publicnode.com', explorer: 'https://base.blockscout.com', tokenPageMs: 30_000, tokenSplit: true, defaultOn: true },
+  { id: 42161,    name: 'Arbitrum One',    native: 'ETH',  source: bs('https://arbitrum.blockscout.com', true),     rpc: 'https://arbitrum-one-rpc.publicnode.com', explorer: 'https://arbitrum.blockscout.com',          tokenPageMs: 30_000, tokenSplit: true, defaultOn: true },
   { id: 10,       name: 'OP Mainnet',      native: 'ETH',  source: bs('https://explorer.optimism.io'),              rpc: 'https://optimism-rpc.publicnode.com', explorer: 'https://explorer.optimism.io',             regenesis: '11 November 2021', defaultOn: true },
   { id: 137,      name: 'Polygon PoS',     native: 'POL',  source: bs('https://polygon.blockscout.com', true), keyedAlt: al('polygon-mainnet'), gapAlt: es(137), rpc: 'https://polygon-bor-rpc.publicnode.com', explorer: 'https://polygon.blockscout.com', defaultOn: true },
   { id: 4663,     name: 'Robinhood Chain', native: 'ETH',  source: bs('https://robinhoodchain.blockscout.com', true), rpc: 'https://rpc.mainnet.chain.robinhood.com', explorer: 'https://robinhoodchain.blockscout.com',  defaultOn: true, traces: false, limits: [RH_LIMIT] },
