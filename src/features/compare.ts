@@ -155,7 +155,12 @@ function fixedGas(s: ScanSession): number | null {
   return same.length / calls.length >= 0.5 && new Set(same.map((t) => t.methodId)).size >= 2 ? limit : null;
 }
 
-export async function compareWallets(sa: ScanSession, sb: ScanSession): Promise<Comparison> {
+export interface CompareOptions {
+  /** The replay of a session, for a caller that compares one wallet with several (Link Graph): a replay per wallet, not per pair. */
+  rerun?: (s: ScanSession) => Promise<ScanResult>;
+}
+
+export async function compareWallets(sa: ScanSession, sb: ScanSession, o: CompareOptions = {}): Promise<Comparison> {
   const a = sa.me, b = sb.me;
   if (a === b) throw new Error('These are the same address.');
   const readOf = (c: ChainCoverage[]) => c.filter((x) => x.status === 'scanned' || x.status === 'partial').length;
@@ -185,7 +190,8 @@ export async function compareWallets(sa: ScanSession, sb: ScanSession): Promise<
   // A service is never a link, and neither is a look-alike (RULES 1.2.0): nothing to weigh.
   if (look || na || nb) return { ...shell, confidence: 0, level: null, reasons: [] };
 
-  const [ra, rb, nonces] = await Promise.all([rerun(sa), rerun(sb), knownNonces(sa, sb)]);
+  const again = o.rerun ?? ((s: ScanSession) => rerun(s));
+  const [ra, rb, nonces] = await Promise.all([again(sa), again(sb), knownNonces(sa, sb)]);
   const busyOther = (address: string, chains: Iterable<ChainId>) => [...chains].some((c) => (nonces.get(`${c}:${address}`) ?? 0) >= SERVICE_NONCE);
   const reasons: CompareReason[] = [];
 
