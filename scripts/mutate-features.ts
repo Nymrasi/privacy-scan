@@ -62,7 +62,7 @@ const MUTANTS: Mutant[] = [
   M('src/features/link-graph.ts', 'if ((hopOf.get(l.b) ?? 0) < (hopOf.get(l.a) ?? 0)) [l.a, l.b] = [l.b, l.a];', '', 'a link points toward the first wallet'),
   M('src/features/link-graph.ts', '.slice(0, limits.perWallet);', ';', 'one wallet draws every link it has'),
   M('src/features/link-graph.ts', 'if (!tagOnly) pairs.set(k, pairLink(c));', 'pairs.set(k, pairLink(c));', "a public tag on a person makes Compare's silence a verdict"),
-  // Link Graph: exchange deposit addresses (his 18561, round 2)
+  // Link Graph: exchange deposit addresses
   M('src/features/link-graph.ts', '.filter((d) => d.users.length && !inGraph.has(d.address) && !away.has(d.address))', '.filter((d) => !inGraph.has(d.address) && !away.has(d.address))', 'a deposit shows without a wallet of the graph'),
   M('src/features/link-graph.ts', '[...(p.deposits ?? new Map<string, GraphDeposit[]>())].filter(([a]) => !away.has(a)).flatMap', '[...(p.deposits ?? new Map<string, GraphDeposit[]>())].flatMap', 'a deposit address from a wallet that is no person shows'),
   M('src/features/link-graph.ts', "(entity && entity !== 'an exchange' ? entity : undefined)", '(entity)', "a deposit address gets an explorer tag's placeholder as its exchange name"),

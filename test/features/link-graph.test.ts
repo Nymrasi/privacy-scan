@@ -256,7 +256,7 @@ test("Compare takes the caller's replay: one replay per wallet for the whole gra
   assert.deepEqual(asked, [R, C1]);
 });
 
-/* ---------- Exchange deposit addresses (his 18561, 2026-10-22): recognised, named only where Nymra can show it ---------- */
+/* ---------- Exchange deposit addresses: recognised, named only where Nymra can show it ---------- */
 
 test('a listed deposit address two read wallets pay into: one deposit in the graph, named by the list, never a wallet of it', async () => {
   const g = await linkGraph(await resultOf(R), { read: reader().read }).grow();

@@ -448,7 +448,7 @@ export async function fetchChain(http: Http, primary: ChainDef, me: string, lim:
     // A chain whose explorer starts at a regenesis (ChainDef.regenesis): the transactions the address sent before it are
     // in no explorer. They are exactly the lowest nonces, so the full list holds the newest ones without a hole: nonces
     // `sent - own.size` to `sent - 1`, each of its own sends with one. Those are no gap in the index: the chain is read
-    // and scored without a line about it (his 18711, 2026-10-23), and the first funding is not on this chain's page.
+    // and scored without a line about it, and the first funding is not on this chain's page.
     const nonces = new Set(first.filter((r) => r.from === me && r.nonce !== undefined).map((r) => Number(r.nonce)));
     const beforeStart = chain.regenesis && !truncTx && own.size > 0 && sent > own.size && nonces.size === own.size
       && Math.min(...nonces) === sent - own.size ? sent - own.size : 0;

@@ -70,7 +70,7 @@ test('E: sassal.eth on OP Mainnet: 41 sent, nonces 9 to 40 listed: no gap, read 
   const h = await read(REGEN, { sent: 41, listed: range(9, 40) });
   assert.deepEqual(h.coverage.missing, []);
   assert.equal(h.coverage.status, 'scanned');
-  assert.deepEqual(h.coverage.limitations, [], 'no line about the history before the regenesis (his 18711)');
+  assert.deepEqual(h.coverage.limitations, [], 'no line about the history before the regenesis');
   assert.equal(h.firstFunding, undefined, 'the payment in before the oldest listed send is no first funding: the first send is not listed');
 });
 
