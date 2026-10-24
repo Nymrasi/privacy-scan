@@ -20,7 +20,7 @@ BNB Smart Chain needs a key, which lives in the relay, never in the browser.
 
 | Detector | Looks for | Cap |
 |---|---|---|
-| `public_identity` | A primary ENS name, its text records, other names the address owns, public labels | 30 |
+| `public_identity` | A primary ENS name, its text records, other names the address owns, its XNS name, public labels | 30 |
 | `linked_wallets` | Back and forth transfers, wallets this address funded first, a shared exchange deposit address | 25 |
 | `funding_reuse` | Whose coins paid for the first transaction on each chain, and the other wallets that wallet funded | 20 |
 | `cex_exposure` | Funding from an exchange, transfers with exchange wallets, deposit addresses | 20 |
@@ -164,6 +164,7 @@ A change to a rule updates `RULES.md` and `RULES_VERSION` in the same pull reque
   [Routescan](https://routescan.io/), keyless; quick checks over public RPC nodes, mostly
   [PublicNode](https://www.publicnode.com/).
 - ENS: Blockscout's ENS service and a public Ethereum node.
+- XNS: the XNS registry on Ethereum (`getName(address)`), through the same public Ethereum node.
 - BNB Smart Chain: [NodeReal MegaNode](https://nodereal.io/meganode) (key in the relay).
   Base and Polygon PoS on a server: [Alchemy's Transfers API](https://www.alchemy.com/docs/reference/alchemy-getassettransfers)
   (key in the relay).

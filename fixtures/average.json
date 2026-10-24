@@ -556,6 +556,6 @@
   "engine": {
     "name": "nymra-privacy-scan",
     "version": "0.1.0",
-    "rulesVersion": "1.4.0"
+    "rulesVersion": "1.5.0"
   }
 }

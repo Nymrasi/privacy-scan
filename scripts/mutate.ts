@@ -133,7 +133,7 @@ const MUTANTS: Mutant[] = [
   M('proxy/proxy.ts', "const browserOk = originAllowed(own, env) && (origin === own || (!origin && req.headers.get('sec-fetch-site') === 'same-origin'));", 'const browserOk = originAllowed(origin, env) || originAllowed(own, env);', 'another of our hosts (or any page on ours) may call this relay cross-origin'),
   M('proxy/proxy.ts', "if (req.method === 'OPTIONS') return new Response(null, { status: 405, headers: { allow: 'GET, POST' } });", "if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*' } });", 'a preflight gets CORS'),
   M('proxy/proxy.ts', 'const bad = targetProblem(req.method, target);', 'const bad = null;', 'any path and method on a register host'),
-  M('proxy/proxy.ts', "if (m === 'eth_call' && (typeof data !== 'string' || !data.toLowerCase().startsWith(ENS_TEXT))) return 'call not allowed';", '', 'any contract call passes'),
+  M('proxy/proxy.ts', "if (m === 'eth_call' && !xns && (typeof data !== 'string' || !data.toLowerCase().startsWith(ENS_TEXT))) return 'call not allowed';", '', 'any contract call passes'),
   M('proxy/proxy.ts', 'export const MAX_BODY = 4096;', 'export const MAX_BODY = 8192;', 'an 8 KB body passes'),
   // Alchemy, the keyed second source of Base and Polygon PoS on a server: test/alchemy.test.ts
   M('src/chains.ts', 'if (!k || !keyedAlts.includes(k.kind)) return c;', 'if (!k) return c;', 'alchemy: read without the relay saying it holds the key (the browser road changes)'),
@@ -166,8 +166,18 @@ const MUTANTS: Mutant[] = [
   // ENS weight 1.4.0: test/score.test.ts, test/detectors.test.ts, test/fixtures.test.ts
   M('src/detectors/public-identity.ts', "id: 'public_identity.ens_reverse', detector: 'public_identity', severity: 'medium', confidence: 1,", "id: 'public_identity.ens_reverse', detector: 'public_identity', severity: 'critical', confidence: 1,", 'ens: a bare ENS name is critical'),
   M('src/score.ts', "export const NAMING_RULES = ['public_identity.public_label'];", "export const NAMING_RULES = ['public_identity.ens_reverse', 'public_identity.public_label'];", 'ens: an ENS name sets the ceiling'),
+  // xns (1.5.0)
+  M('src/detectors/public-identity.ts', 'if (p.xns) {', 'if (false) {', 'xns: xns_name never fires'),
+  M('src/detectors/public-identity.ts', "id: 'public_identity.xns_name', detector: 'public_identity', severity: 'medium', confidence: 1,", "id: 'public_identity.xns_name', detector: 'public_identity', severity: 'low', confidence: 1,", 'xns: an XNS name is low'),
+  M('src/sources/identity.ts', 'if (xns.value) profile.xns = xns.value;', '', 'xns: the name never reaches the profile'),
+  M('src/sources/identity.ts', "return isXnsName(name) ? name : '';", 'return name;', 'xns: any registry answer is a name'),
+  M('src/sources/identity.ts', "const XNS_PART = /^[a-z0-9](?:[a-z0-9]|-(?!-)){0,19}$/;", "const XNS_PART = /^[a-z0-9-]{1,40}$/;", 'xns: the format rule is loose'),
+  M('src/sources/identity.ts', "errors.push({ part: 'names', name: 'XNS name', reason: `The XNS name of this address could not be read (${reasonOf(xns.reason)})` });", '', 'xns: a failed read is silent'),
+  M('src/scan.ts', '...(profile?.xns ? { xns: profile.xns } : {}), ', '', 'xns: the result has no identity.xns'),
+  M('proxy/proxy.ts', 'const xns = to === XNS_REGISTRY && ', 'const xns = ', 'xns: the relay lets getName to any contract through'),
+  M('proxy/proxy.ts', "data.length === 74 && data.toLowerCase().startsWith(XNS_NAME);", "data.toLowerCase().startsWith(XNS_NAME);", 'xns: the relay takes a getName of any length'),
   M('src/score.ts', "export const NAMING_RULES = ['public_identity.public_label'];", 'export const NAMING_RULES: string[] = [];', 'ens: a public label sets no ceiling'),
-  M('src/score.ts', "export const RULES_VERSION = '1.4.0';", "export const RULES_VERSION = '1.3.0';", 'ens: the rules version is not raised'),
+  M('src/score.ts', "export const RULES_VERSION = '1.5.0';", "export const RULES_VERSION = '1.4.0';", 'xns: the rules version is not raised'),
   M('src/detectors/public-identity.ts', "severity: social.length ? 'high' : 'medium', confidence: 0.95,", "severity: 'medium', confidence: 0.95,", 'ens: records with real handles cost no more than the bare name'),
   // addrKey remembers each address (2026-10-21): test/hash.test.ts
   M('src/hash.ts', '    KEYS.set(address, k);\n', '', 'l85: addrKey forgets every address'),

@@ -19,7 +19,7 @@ export type DetectorId =
   | 'cross_chain'
   | 'behavioral_fingerprint';
 
-export type EvidenceKind = 'tx' | 'address' | 'label' | 'stat' | 'ens' | 'pattern';
+export type EvidenceKind = 'tx' | 'address' | 'label' | 'stat' | 'ens' | 'xns' | 'pattern';
 
 /** One piece of proof behind a finding. Every field except `kind` and `text` is optional. */
 export interface Evidence {
@@ -193,6 +193,8 @@ export interface ScanResult {
   warnings: Warning[];
   identity: {
     ens?: string;
+    /** The XNS name of the address (`label@namespace`, e.g. vitalik@eth). XNS names never expire or move. */
+    xns?: string;
     /** The explorer's name tags on the scanned address itself, e.g. "Binance 14", "Vitalik Buterin". */
     labels: string[];
     /**

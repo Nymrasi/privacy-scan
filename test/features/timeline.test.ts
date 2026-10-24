@@ -110,6 +110,17 @@ test('a public name has no date: it counts from today only, as a last point of i
   assert.ok(tl.points.filter((p) => p.kind !== 'today').every((p) => p.score > today.score), 'and never back in time');
 });
 
+test('an XNS name has no date in the history read: it counts from today only, like an undated ENS name', async () => {
+  const { s } = story({ xns: 'someone@eth' });
+  const scan = await rerun(s);
+  const tl = await privacyTimeline(s, scan);
+  assert.ok(tl.undated.includes('public_identity.xns_name'));
+  const today = tl.points.at(-1)!;
+  assert.equal(today.kind, 'today');
+  assert.equal(today.score, scan.score);
+  assert.equal(tl.points.at(-2)!.score - today.score, 8, 'the XNS name costs its 8 points from today only');
+});
+
 test('a primary name set in the read history is dated by that transaction', async () => {
   const setName = t({ from: ME, to: '0xa58e81fe9b61b5c3fe2afd33cf304c454abfc7cb', amount: 0, isCall: true, methodId: '0xc47f0027', timestamp: ts('2025-05-20T12:00:00Z') });
   const { s } = story({ ens: 'someone.eth' }, [setName]);

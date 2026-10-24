@@ -63,7 +63,7 @@ export interface TimelineOptions {
   now?: number;
 }
 
-const UNDATED = ['public_identity.ens_reverse', 'public_identity.ens_records', 'public_identity.owned_names', 'public_identity.public_label', 'behavioral_fingerprint.wallet_software', 'public_identity.is_contract'];
+const UNDATED = ['public_identity.ens_reverse', 'public_identity.xns_name', 'public_identity.ens_records', 'public_identity.owned_names', 'public_identity.public_label', 'behavioral_fingerprint.wallet_software', 'public_identity.is_contract'];
 /** ENS reverse registrars and the calls that set a primary name: setName(string), setNameForAddr(...). */
 const REVERSE_REGISTRARS = new Set(['0x084b1c3c81545d370f3634392de611caabff8148', '0xa58e81fe9b61b5c3fe2afd33cf304c454abfc7cb']);
 const SET_NAME = new Set(['0xc47f0027', '0x7a806d6b']);

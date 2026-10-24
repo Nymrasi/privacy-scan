@@ -67,7 +67,7 @@ test('1.4.0: a primary ENS name is no ceiling any more (an ENS name can be made 
   const label = scoreFindings([f('public_identity.public_label', 'public_identity', 'critical', 1), f('public_identity.ens_reverse', 'public_identity', 'medium', 1)]);
   assert.equal(label.score, 34);
   assert.equal(label.breakdown.ceiling, 34);
-  assert.equal(RULES_VERSION, '1.4.0');
+  assert.equal(RULES_VERSION, '1.5.0');
 });
 
 test('bands', () => {

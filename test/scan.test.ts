@@ -870,3 +870,24 @@ test('A11: an address never used on any chain read says so (unused), with no fin
   const used = await scan(ME, { chainIds: [1], fetch: fakeFetch([]), cache: false });
   assert.ok(!('unused' in used));
 });
+
+test('scan(): the XNS name of the address is in identity.xns and costs its finding (1.5.0)', async () => {
+  const base = fakeFetch([]);
+  const f = (async (input: string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'POST' && url.includes('ethereum-rpc')) {
+      const body = JSON.parse(String(init.body));
+      if (body[0]?.params?.[0]?.to === '0x6e797ba2d3103af167918e71a7e01de40d45f74b') return new Response(JSON.stringify([{ id: body[0].id, result: encString('someone@eth') }]));
+    }
+    return base(input, init);
+  }) as typeof fetch;
+  const r = await scan(ME, { chainIds: [1], fetch: f, cache: false });
+  assert.equal(r.identity.xns, 'someone@eth');
+  assert.equal(r.identity.ens, 'someone.eth');
+  const x = r.findings.find((y) => y.id === 'public_identity.xns_name')!;
+  assert.equal(x.scoreImpact, -8);
+  assert.ok(!r.incomplete?.some((g) => g.name === 'XNS name'));
+  // Without an XNS name the result carries no xns key at all.
+  const plain = await scan(ME, { chainIds: [1], fetch: fakeFetch([]), cache: false });
+  assert.ok(!('xns' in plain.identity));
+});

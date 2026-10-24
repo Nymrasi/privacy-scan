@@ -47,7 +47,7 @@ ever be it, and a test fails on any other name.
 | `linkedWallets` | RelatedAddress[] | every `related` from every finding, merged per address, highest confidence first. Never the wallet itself and never a look-alike of it |
 | `warnings` | Warning[] | safety warnings that are not findings and cost no points; today only `address_poisoning`. Empty when there are none (see below) |
 | `unused` | `true`? | set when the address never sent a transaction and holds nothing on every chain read, and nothing names it: there is nothing to score (the score is 100 by construction). Show that instead of a band |
-| `identity` | `{ ens?, labels[], service? }` | public name, and the explorer's name tags on the address itself (read from its own side of its rows: the explorer's address page carries none); `service` when the address itself is a known service (see below) |
+| `identity` | `{ ens?, xns?, labels[], service? }` | public name (`ens` the primary ENS name, `xns` the XNS name such as `vitalik@eth`), and the explorer's name tags on the address itself (read from its own side of its rows: the explorer's address page carries none); `service` when the address itself is a known service (see below) |
 | `coverage` | ChainCoverage[] | what was and was not seen per chain; show this next to the score |
 | `incomplete` | Incomplete[] | what this scan could not read (a chain, one list of a chain, ENS and labels, funder or deposit checks). Empty when `status` is `complete`. **A partial score is computed from what was read only: show it as partial, with these lines, and offer a rescan** |
 | `engine` | `{ name, version, rulesVersion }` | |
@@ -83,7 +83,7 @@ Invariant: `100 + sum(findings[].scoreImpact) === score`.
 | `linked_wallets` | probable sibling wallets: shared funder, back and forth transfers, shared CEX deposit address |
 | `recurring_counterparties` | a few wallets that make up most of the activity |
 | `cex_exposure` | transfers with known exchange wallets, CEX funding, personal deposit addresses |
-| `public_identity` | ENS reverse name, ENS text records, public labels |
+| `public_identity` | ENS reverse name, ENS text records, XNS name, public labels |
 | `cross_chain` | same address active on several chains, matching bridge flows |
 | `behavioral_fingerprint` | hour-of-day pattern (time zone), round amounts, fixed gas setting, fixed timing |
 
@@ -112,7 +112,7 @@ real address: that is the attack. A look-alike is never in `linkedWallets` or in
 ## Evidence
 
 ```ts
-{ kind: 'tx' | 'address' | 'label' | 'stat' | 'ens' | 'pattern',
+{ kind: 'tx' | 'address' | 'label' | 'stat' | 'ens' | 'xns' | 'pattern',
   text: string,            // always present, human readable
   chainId?, txHash?, address?, label?, value?, timestamp?, url? }
 ```
@@ -157,7 +157,7 @@ own state (`addressType: 'contract'`); a contract can carry a `service` too.
 
 ```ts
 { part: 'chain' | 'tokens' | 'internal' | 'oldest' | 'identity' | 'names' | 'lookups' | 'skipped' | 'aborted',
-  chainId?, name /* "Base", "ENS and labels", "Other ENS names", "ENS records", "Funder and deposit checks" */,
+  chainId?, name /* "Base", "ENS and labels", "Other ENS names", "ENS records", "XNS name", "Funder and deposit checks" */,
   reason /* "Base: rate limit reached" */ }
 ```
 
@@ -174,7 +174,7 @@ means a score, marked partial, with its lines.
 | `identity` | the ENS name, the public labels or the contract check: a public label sets the named-wallet ceiling, the check the contract state | no score |
 | `aborted` | the scan was stopped | no score |
 | `tokens`, `internal`, `oldest` | one list of a chain | partial score |
-| `names` | the other ENS names of the address, the records of its name: at most 8 points, never the ceiling | partial score |
+| `names` | the other ENS names of the address, the records of its name, its XNS name: never the ceiling | partial score |
 | `skipped` | a chain only the relay can read, which it cannot serve today (no key for it, or its daily quota spent until 00:00 UTC; see `skipReason`), where the quick check saw the wallet send or hold something | partial score; a retry does not help |
 
 A coverage row with `status: 'error'` always has a `chain` gap. `no_activity` and `skipped` rows are
@@ -242,7 +242,7 @@ Cloudflare-walled chains (see below).
 | Blockscout Etherscan-compatible `/api` | | none | `*` | **not used**: keyless it allows about 10 requests an hour per IP |
 | Blockscout `/api/v2/addresses/<a>` | primary ENS name, public tags, contract flag | none | `*` | used once per scan on Ethereum |
 | Blockscout BENS `bens.services.blockscout.com/api/v1/1/...` | ENS names, namehash, resolver | none | echoes origin | used for ENS |
-| `ethereum-rpc.publicnode.com` | ENS text records (`text()` eth_call) | none | `*` | used for ENS records |
+| `ethereum-rpc.publicnode.com` | ENS text records (`text()` eth_call) and the XNS name (`getName(address)` eth_call on the XNS registry) | none | `*` | used for ENS records and XNS names |
 | Routescan `api.routescan.io/v2/network/mainnet/evm/<id>/etherscan/api` | Avalanche (and Ethereum's second source) | none | `*` | used where Blockscout has no instance |
 | Etherscan V2 `api.etherscan.io/v2/api` | a gap in Polygon PoS's own index | in the relay | `*` | **used through the relay only**, with its key, once per chain when the explorer lists fewer sent transactions than the nonce says. Without a key it answers one request per 5 s per IP, and not for every chain (measured 2026-10-17: Base, BNB Chain, OP and Robinhood Chain answer that they are not supported, Arbitrum and Polygon ask for a key) |
 | Blockscout metadata service (labels) | | none | no CORS header | not usable from the browser |

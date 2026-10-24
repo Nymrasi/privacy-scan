@@ -51,6 +51,17 @@
         "Moving the names to another wallet would link that wallet to this one. Move your private activity to a fresh wallet instead, and let this one be your public identity."
       ]
     },
+    "public_identity.xns_name": {
+      "kind": "permanent",
+      "who": [
+        "anyone"
+      ],
+      "action": "Treat this wallet as named",
+      "steps": [
+        "An XNS name stays with its address for good. It cannot be removed or moved to another wallet.",
+        "Use this wallet for what you are happy to show under that name, and do private things from a fresh wallet."
+      ]
+    },
     "public_identity.public_label": {
       "kind": "permanent",
       "who": [

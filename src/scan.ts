@@ -60,7 +60,7 @@ export function assemble(
     linkedWallets: mergeRelated(shown, me),
     warnings,
     identity: {
-      ...(profile?.ens ? { ens: profile.ens } : {}), labels: profile?.tags ?? [],
+      ...(profile?.ens ? { ens: profile.ens } : {}), ...(profile?.xns ? { xns: profile.xns } : {}), labels: profile?.tags ?? [],
       ...(profile?.tagChains ? { labelChains: profile.tagChains } : {}), ...(service ? { service } : {}),
       ...(profile?.isContract ? { contract: contractOf(profile) } : {}),
     },

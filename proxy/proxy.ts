@@ -27,7 +27,7 @@
 //   in proxy/README.md. Every upstream call has a 15 s timeout. A bot check upstream comes back as
 //   JSON 503, never as its HTML page, and so does a redirect: the relay follows none.
 import { CHAINS } from '../src/chains.ts';
-import { ENS_RPC } from '../src/sources/identity.ts';
+import { ENS_RPC, XNS_REGISTRY } from '../src/sources/identity.ts';
 
 export interface RateLimiter { limit(o: { key: string }): Promise<{ success: boolean }> }
 
@@ -57,8 +57,9 @@ const MAX_BATCH = 16;
 export const RPC_METHODS = new Set(['eth_getTransactionCount', 'eth_getBalance', 'eth_getCode', 'eth_call', 'nr_getTransactionByAddress']);
 /** The one call an Alchemy host gets, and no other host: the key pays for nothing else. */
 export const ALCHEMY_METHOD = 'alchemy_getAssetTransfers';
-/** The only contract call the scan makes: an ENS resolver's text(bytes32,string). */
+/** The contract calls the scan makes: an ENS resolver's text(bytes32,string), and getName(address) on the XNS registry. */
 const ENS_TEXT = '0x59d1d43c';
+const XNS_NAME = '0x5fd4b08a';
 /** Fallback limiter (when no binding): requests per minute per caller, per isolate. */
 const MEM_LIMIT = 300;
 
@@ -168,7 +169,9 @@ export function rpcProblem(body: string, alchemy = false): string | null {
     if (alchemy) continue;
     if (typeof m !== 'string' || !RPC_METHODS.has(m)) return 'method not allowed';
     const data = (c as any)?.params?.[0]?.data;
-    if (m === 'eth_call' && (typeof data !== 'string' || !data.toLowerCase().startsWith(ENS_TEXT))) return 'call not allowed';
+    const to = String((c as any)?.params?.[0]?.to ?? '').toLowerCase();
+    const xns = to === XNS_REGISTRY && typeof data === 'string' && data.length === 74 && data.toLowerCase().startsWith(XNS_NAME);
+    if (m === 'eth_call' && !xns && (typeof data !== 'string' || !data.toLowerCase().startsWith(ENS_TEXT))) return 'call not allowed';
   }
   return null;
 }

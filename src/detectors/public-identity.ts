@@ -1,4 +1,4 @@
-// ENS / public identity: a name, linked accounts, public labels.
+// ENS / public identity: a name (ENS or XNS), linked accounts, public labels.
 import { chainName } from '../chains.ts';
 import { cexLabel } from '../labels.ts';
 import type { Evidence, Finding } from '../types.ts';
@@ -30,6 +30,18 @@ export const publicIdentity: Detector = {
           ? `This address is set to show the ENS name ${p.ens}. Anyone who knows the name finds this address, and anyone looking at it sees the name.`
           : `This address is set to show the ENS name ${p.ens}. Anyone who knows the name finds this wallet, and anyone looking at the wallet sees the name.`,
         evidence: [{ kind: 'ens', text: `Primary ENS name: ${p.ens}`, value: p.ens, chainId: 1 }],
+        chains: [1],
+      }));
+    }
+    // An XNS name (1.5.0) stays with its address for good: XNS names never expire and cannot be moved or
+    // removed. Like an ENS name it can be made up, so it is medium and no ceiling.
+    if (p.xns) {
+      const w = it ? 'address' : 'wallet';
+      out.push(finding({
+        id: 'public_identity.xns_name', detector: 'public_identity', severity: 'medium', confidence: 1,
+        title: it ? 'This address has an XNS name' : 'Your wallet has an XNS name',
+        explanation: `This address has the XNS name ${p.xns}, and an XNS name stays with its address for good. Anyone who knows the name finds this ${w}, and anyone looking at the ${w} sees the name.`,
+        evidence: [{ kind: 'xns', text: `XNS name: ${p.xns}`, value: p.xns, chainId: 1 }],
         chains: [1],
       }));
     }

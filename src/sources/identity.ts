@@ -1,5 +1,5 @@
-// Public identity of an address: ENS primary name and records, owned names, explorer tags.
-// Keyless: Blockscout v2 + Blockscout BENS + a public Ethereum RPC for ENS text records.
+// Public identity of an address: ENS primary name and records, owned names, its XNS name, explorer tags.
+// Keyless: Blockscout v2 + Blockscout BENS + a public Ethereum RPC for ENS text records and the XNS name.
 import { CHAIN_BY_ID } from '../chains.ts';
 import type { Profile } from '../detectors/context.ts';
 import { blockscoutAddress } from './explorer.ts';
@@ -9,6 +9,20 @@ export const ENS_RPC = 'https://ethereum-rpc.publicnode.com';
 const BENS = 'https://bens.services.blockscout.com/api/v1/1';
 /** ENS text records that tie a name to a person or an account elsewhere. */
 export const IDENTITY_KEYS = ['com.twitter', 'com.github', 'url', 'email', 'com.discord', 'org.telegram', 'com.linkedin', 'xyz.farcaster', 'name', 'location'];
+
+/**
+ * XNS (xns.name): one registry on Ethereum mainnet that gives an address at most one name, `label@namespace`
+ * (vitalik@eth), for good: it never expires and cannot be moved or sold. getName(address) answers it.
+ */
+export const XNS_REGISTRY = '0x6e797ba2d3103af167918e71a7e01de40d45f74b';
+const SEL_XNS_NAME = '0x5fd4b08a'; // getName(address)
+/** One side of an XNS name: 1 to 20 of a-z, 0-9 and hyphens, no hyphen at either end, never two in a row. */
+const XNS_PART = /^[a-z0-9](?:[a-z0-9]|-(?!-)){0,19}$/;
+/** `label@namespace` in XNS's own format; anything else the registry answers is not a name. */
+export function isXnsName(s: string): boolean {
+  const parts = s.split('@');
+  return parts.length === 2 && parts.every((x) => XNS_PART.test(x) && !x.endsWith('-'));
+}
 
 function enc32(hex: string) { return hex.replace(/^0x/, '').padStart(64, '0'); }
 function encString(s: string) {
@@ -47,6 +61,16 @@ async function ensRecords(http: Http, name: string): Promise<Record<string, stri
   return out;
 }
 
+/** The XNS name of an address, '' when it has none. One call in a batch, like the ENS records. */
+export async function xnsName(http: Http, me: string): Promise<string> {
+  const res = await http.getJson(ENS_RPC, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify([{ jsonrpc: '2.0', id: 0, method: 'eth_call', params: [{ to: XNS_REGISTRY, data: SEL_XNS_NAME + enc32(me) }, 'latest'] }]) });
+  const r = Array.isArray(res) ? res[0] : res;
+  if (typeof r?.result !== 'string') throw new Error(r?.error?.message ? String(r.error.message).slice(0, 80) : 'no answer');
+  const name = decodeString(r.result).toLowerCase();
+  return isXnsName(name) ? name : '';
+}
+
 /**
  * One identity read that failed. `identity`: the name, the labels or the contract check, which set the
  * named-wallet ceiling and the contract state. `names`: the other names and the records of the name,
@@ -60,10 +84,11 @@ export async function fetchProfile(http: Http, me: string): Promise<{ profile: P
   const eth = CHAIN_BY_ID.get(1)!;
   // The primary name comes from Blockscout's address page, and also from BENS (another host with its own
   // limit): when the explorer refuses, the name, its -22 and the named-wallet ceiling still apply.
-  const [addr, owned, rev] = await Promise.allSettled([
+  const [addr, owned, rev, xns] = await Promise.allSettled([
     blockscoutAddress(http, eth, me),
     http.getJson(`${BENS}/addresses:lookup?address=${me}&resolved_to=false&owned_by=true&only_active=true&page_size=50`),
     http.getJson(`${BENS}/addresses/${me}`),
+    xnsName(http, me),
   ]);
   if (addr.status === 'fulfilled' && addr.value) {
     const a = addr.value;
@@ -93,6 +118,11 @@ export async function fetchProfile(http: Http, me: string): Promise<{ profile: P
     profile.ownedNames = (owned.value?.items ?? []).map((d: any) => String(d.name)).filter((n: string) => n && n !== profile.ens).slice(0, 20);
   } else {
     errors.push({ part: 'names', name: 'Other ENS names', reason: `Other ENS names of this address could not be read (${reasonOf(owned.reason)})` });
+  }
+  if (xns.status === 'fulfilled') {
+    if (xns.value) profile.xns = xns.value;
+  } else {
+    errors.push({ part: 'names', name: 'XNS name', reason: `The XNS name of this address could not be read (${reasonOf(xns.reason)})` });
   }
   if (profile.ens) {
     try { profile.ensRecords = await ensRecords(http, profile.ens); } catch (e) { errors.push({ part: 'names', name: 'ENS records', reason: `ENS records could not be read (${reasonOf(e)})` }); }

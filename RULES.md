@@ -1,6 +1,6 @@
 # Nymra scan rules
 
-Rules version **1.4.0** (changes per version at the end). This file explains, in full, how the Privacy Score is computed and when
+Rules version **1.5.0** (changes per version at the end). This file explains, in full, how the Privacy Score is computed and when
 each finding fires. The code that does it is in [`src/score.ts`](src/score.ts) and
 [`src/detectors/`](src/detectors). If this file and the code ever disagree, that is a bug: please
 open an issue.
@@ -171,6 +171,7 @@ a look-alike reads exactly like the real address.
 | `ens_reverse` | the address has a primary ENS name | medium | 1.0 |
 | `ens_records` | that name carries text records such as X (Twitter), GitHub, website, email, Discord, Telegram, LinkedIn, Farcaster, name or location | high (medium if only name or location) | 0.95 |
 | `owned_names` | the address owns ENS names other than its primary name | low (medium without a primary name) | 0.9 |
+| `xns_name` | the address has an XNS name (`label@namespace`, such as `vitalik@eth`), read from the XNS registry on Ethereum | medium | 1.0 |
 | `public_label` | an explorer name tag or an open label list names the address | critical | 1.0 |
 | `is_contract` | the address is a smart contract (an EIP-7702 wallet counts as a wallet) | info | 1.0 |
 
@@ -183,6 +184,13 @@ many). The result says so in `identity.service`.
 
 A name that merely points at an address, but is owned by someone else, is ignored: anyone can
 point a name at any address.
+
+An XNS name ([xns.name](https://xns.name)) is a different kind of name from ENS: the registry
+`0x6e797ba2d3103af167918e71a7e01de40d45f74b` on Ethereum gives an address at most one name, and that
+name never expires and can never be moved or removed. The scan asks the registry `getName(address)`
+and counts only an answer in XNS's own format. Like an ENS name it can be made up, so it costs its
+medium and never sets the named-wallet ceiling. When the registry cannot be asked, the result is
+`partial` and says so.
 
 ### Likely linked wallets (`linked_wallets`)
 
@@ -301,6 +309,13 @@ range of plus or minus one hour.
 - Every result lists, per chain, what was read and what was not (`coverage`).
 
 ## Changes
+
+### 1.5.0 (2026-10-23)
+
+- **XNS names**: an address's XNS name (`xns_name`, medium, confidence 1.0) is a public name like a
+  primary ENS name, and it stays with the address for good. It is read with one `getName(address)`
+  call to the XNS registry on Ethereum, next to the ENS reads; the relay lets that one call through.
+  It never sets the named-wallet ceiling. A wallet with an ENS name and an XNS name has both findings.
 
 ### 1.4.0 (2026-10-17)
 

@@ -79,6 +79,7 @@ const MUTANTS: Mutant[] = [
   M('src/features/timeline.ts', 'return hs.map(({ nonce: _today, ...h }) => {', 'return hs.map((h) => {', "today's chain count makes a chain active back in time"),
   M('src/features/timeline.ts', 'firstFunding: firstOwn ? h.firstFunding : undefined', 'firstFunding: h.firstFunding', 'funding counts before the first transaction it paid for'),
   M('src/features/timeline.ts', '(setName && T >= setName.timestamp ?', '(setName && T >= 0 ?', 'the primary name counts before the transaction that set it'),
+  M('src/features/timeline.ts', "'public_identity.ens_reverse', 'public_identity.xns_name', ", "'public_identity.ens_reverse', ", 'xns: the timeline dates an XNS name from the first point'),
   M('src/features/timeline.ts', "if (gap) await push(gap.to, 'month');", '', 'the line goes on across the unread gap'),
 ];
 

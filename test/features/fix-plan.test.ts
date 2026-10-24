@@ -91,7 +91,7 @@ test('order: today first by points won, then habits by points, then what is alre
 test('advice: one entry for every rule the detectors can fire, plain text without em dash or middle dot', () => {
   const src = readdirSync(new URL('../../src/detectors/', import.meta.url)).map((n) => readFileSync(new URL(`../../src/detectors/${n}`, import.meta.url), 'utf8')).join('\n');
   const ids = [...new Set([...src.matchAll(/id: '([a-z_]+\.[a-z_]+)'/g)].map((m) => m[1]))];
-  assert.equal(ids.length, 24);
+  assert.equal(ids.length, 25);
   for (const id of ids) assert.ok(adviceFor(id), `advice for ${id}`);
   for (const d of DETECTORS) assert.match(learnMoreFor(d), /^\/docs\/findings\/[a-z-]+\/#how-to-reduce-it$/);
   assert.deepEqual([...NOW_RULES].sort(), ['behavioral_fingerprint.wallet_software', 'public_identity.ens_records', 'public_identity.ens_reverse']);

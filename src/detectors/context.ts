@@ -16,6 +16,8 @@ export interface Profile {
   ensRecords: Record<string, string>;
   /** Other ENS names this address owns (not only names pointing at it). */
   ownedNames: string[];
+  /** The XNS name of the address (`label@namespace`), from the XNS registry on Ethereum. */
+  xns?: string;
   /** Public name tags on the address itself (the explorer's, from its address page and its own side of the rows). */
   tags: string[];
   /**

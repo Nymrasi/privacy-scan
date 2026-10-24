@@ -1,7 +1,7 @@
 // The score formula. RULES.md explains it in words; keep both in step.
 import type { DetectorId, Finding, LinkLevel, ScoreBand, ScoreBreakdown, Severity } from './types.ts';
 
-export const RULES_VERSION = '1.4.0';
+export const RULES_VERSION = '1.5.0';
 
 /** Points a finding costs at confidence 1.0. */
 export const SEVERITY_POINTS: Record<Severity, number> = {
