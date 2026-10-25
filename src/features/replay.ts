@@ -1,6 +1,6 @@
 // Run the detectors again on what a finished scan read (its session), with or without a change.
 // A replay asks the network nothing: a lookup or a nonce check comes from the scan's record, or from
-// the `fresh` lookup a feature passes in for the one new address it is about (before-you-send).
+// the `fresh` lookup a feature passes in for the one new address it is about.
 // Everything else is skipped and noted, never guessed.
 import { makeNonces, type DetectorContext, type Profile } from '../detectors/context.ts';
 import { analyzeRecipients } from '../detectors/deposits.ts';

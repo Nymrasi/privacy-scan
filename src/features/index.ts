@@ -4,8 +4,6 @@ export { adviceFor, learnMoreFor, fixPlan, whatIf, winBack, FIX_TEXT, VIEWER_TEX
 export type { Advice, FixItem, FixKind, FixPlan, Viewer } from './fix-plan.ts';
 export { replayLookup, rerun } from './replay.ts';
 export type { ReplayLookup, RerunOptions } from './replay.ts';
-export { beforeYouSend, PLANNED_HASH } from './before-you-send.ts';
-export type { Destination, DestinationKind, PlannedTransfer, SendChange, SendCheck, SendOptions } from './before-you-send.ts';
 export { compareWallets } from './compare.ts';
 export type { Comparison, CompareOptions, CompareReason, CompareReasonKind, CompareTrail } from './compare.ts';
 export { replayContext } from './replay.ts';

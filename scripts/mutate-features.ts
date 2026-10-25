@@ -26,15 +26,6 @@ const MUTANTS: Mutant[] = [
   M('src/features/fix-plan.ts', "if (!item.gain && fs.some((f) => f.rawImpact < 0)) item.heldBy = result.breakdown.ceiling !== undefined ? 'ceiling' : 'cap';", '', 'a today-step with no points does not say why'),
   M('src/features/fix-plan.ts', 'item.gain = Math.max(0, whatIf(result.findings, [id]) - result.score);', 'item.gain = 0;', 'no today-step wins anything'),
   M('src/features/advice.json', '"cross_chain.received_only": {', '"cross_chain.received_only_x": {', 'a rule without advice'),
-  // Before you send
-  M('src/features/before-you-send.ts', 'const nonces = replayNonces(s, facts.nonce !== undefined ? [[`${chain.id}:${to}`, facts.nonce]] : []);', 'const nonces = replayNonces(s, []);', "the destination's own count does not reach the rules"),
-  M('src/features/before-you-send.ts', ": service ? 'service'", ": false ? 'service'", 'a service destination reads as a wallet'),
-  M('src/features/before-you-send.ts', 'facts.nonce >= SERVICE_NONCE ?', 'facts.nonce >= SERVICE_NONCE * 10 ?', 'a busy destination is not a service'),
-  M('src/features/before-you-send.ts', 'if (lookalike(to, s.me)) return s.me;', '', 'an imitation of your own address passes'),
-  M('src/features/before-you-send.ts', 'firstOwn, firstFunding: h.firstOwn ? h.firstFunding : fundingOf(signed, [...h.txs, ...h.internal]),', 'firstOwn, firstFunding: h.firstFunding,', 'a first send on a chain makes no funding'),
-  M('src/features/before-you-send.ts', 'ownCount: h.ownCount + 1,', 'ownCount: h.ownCount,', 'the planned send is not your own transaction'),
-  M('src/features/before-you-send.ts', 'const keep = new Set([...TIMING_RULES, ...(roundPlanned ? [] : [ROUND_RULE])]);', 'const keep = new Set([...(roundPlanned ? [] : [ROUND_RULE])]);', 'the timing rules move with a send time Nymra cannot know'),
-  M('src/features/before-you-send.ts', "nonces: replayNonces(s, [[`${chain.id}:${to}`, 1]]),", 'nonces,', 'a fresh destination never shows what its first own transaction does'),
   // Compare
   M('src/features/compare.ts', 'if (look || na || nb) return { ...shell, confidence: 0, level: null, reasons: [] };', '', 'a look-alike or a service is weighed as a link'),
   M('src/features/compare.ts', 'if ((h.nonce ?? 0) >= SERVICE_NONCE) busy.push(', 'if ((h.nonce ?? 0) >= SERVICE_NONCE * 10) busy.push(', 'a busy chain links them'),
